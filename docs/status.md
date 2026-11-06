@@ -30,6 +30,9 @@ What Chipova Forge does today (2026-11-06), what it doesn't, and what was checke
 - **AI**: 22 `forge.*` tools for the AI Hub; proposals that people decide, as whole texts or, for a
   small change in a long file, as edits (old → new, tolerant of indentation and of the names coding
   tools use); a newer proposal by the same AI for the same files replaces its pending one; the audit log.
+  What it reads: the product's files and the outputs the page shows (a PCB build's netlist, parts
+  list, placement, ERC/DRC; any build's log) at once; the chip's sources and other outputs only after
+  the person allows it in the AI Hub's chat (`forge.read_output`, `reflex_ddns_auth.tools.ask_first`).
 - **People**: roles, the link's access, members; an owner can delete the product (its simulations stop).
 - **Tools**: when its two images aren't on the computer (an App Store install doesn't bring them), the home page
   builds them in the app, with progress.

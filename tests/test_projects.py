@@ -256,3 +256,43 @@ def test_members_and_the_link(sensor, me):
     with pytest.raises(ValueError):
         projects.set_link_access(pid, "everyone", me)
     assert [m["user"] for m in projects.members(pid)] == [me.user]
+
+
+def test_what_the_ai_reads_and_what_it_asks_for(sensor, me):
+    """Open: the project's files and the outputs the page shows; the chip's sources and other
+    outputs ask the person first (reflex_ddns_auth.tools.ask_first); with their OK, they're read."""
+    import asyncio
+
+    from reflex_ddns_auth.tools import AskFirst, ToolContext
+
+    from chipova_forge.agents import ai_tools, outputs
+
+    pid = sensor["id"]
+    ask = ToolContext(user=me.user, caller="ai-hub")
+    allowed = ToolContext(user=me.user, caller="ai-hub", consented=True)
+    assert "platform" in asyncio.run(ai_tools.read_file(ask, pid, "system.yaml"))["text"]
+    from chipova_forge import paths
+
+    work = paths.work_dir(pid)
+    chip_file = str(next((work / "chip").rglob("*.sv")).relative_to(work))
+    with pytest.raises(AskFirst, match="chip's source"):
+        asyncio.run(ai_tools.read_file(ask, pid, chip_file))
+    assert "module" in asyncio.run(ai_tools.read_file(allowed, pid, chip_file))["text"]
+    assert outputs.is_open("pcb", "bom.csv") and outputs.is_open("pcb", "netlist") and outputs.is_open("chip", "log")
+    assert outputs.is_open("registers", "c/smart_sensor_regs.h")
+    assert not outputs.is_open("pcb", "kicad/board.kicad_sch") and not outputs.is_open("registers", "rtl/smart_sensor_regs.sv")
+
+
+def test_the_netlist_says_what_each_part_connects(sensor):
+    """What answers "what does R3 do?": each part's value, what it is, and its pins' nets."""
+    from chipova_forge.agents import outputs
+    from chipova_forge.pcb import netlist as pcb_netlist
+    from chipova_forge.system import board as board_mod
+
+    c = projects.contract(sensor["id"])
+    b = board_mod.from_yaml(projects.read(sensor["id"], "system.yaml"))
+    d, _ = pcb_netlist.build(c, b, "My sensor")
+    text = outputs.netlist_of(d)
+    pullups = [ln for ln in text.splitlines() if ln.startswith("- R") and "4.7k" in ln]
+    assert pullups and all("+3V3" in ln for ln in pullups)  # the I2C pull-ups go to the supply
+    assert "Nets (what each connects):" in text and "- GND:" in text

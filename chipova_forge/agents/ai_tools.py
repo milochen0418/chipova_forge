@@ -16,9 +16,10 @@ import json
 from typing import Any, Callable
 
 import reflex as rx
-from reflex_ddns_auth.tools import ToolContext, tool
+from reflex_ddns_auth.tools import ToolContext, ask_first, tool
 
 from chipova_forge import ids
+from chipova_forge.agents import outputs
 from chipova_forge.contract import contract as hdc
 from chipova_forge.cosim import vcd
 from chipova_forge.domain import roles
@@ -44,7 +45,11 @@ A project ("room") has: chip/ (read-only, a Chipova snapshot), hardware.yaml (th
 its pins, interface, registers), system.yaml (the board), device.yaml (the device's commands, one
 UART line each), firmware/*.c, tests/*.yaml.
 
-- forge.get_project shows where each step stands. forge.read_file reads any file.
+- forge.get_project shows where each step stands. forge.read_file reads the project's files;
+  the chip's own sources (chip/...) are Chipova's design, and reading one asks the person first.
+- forge.read_output reads what a build made: for a PCB build "netlist" (every part, its value and
+  each pin's net: what a part does), "bom.csv", "positions.csv", "erc.json", "drc.json"; any
+  build's "log". Others ask the person first. When the person declines, work without it.
 - You never edit files: forge.propose_change proposes changes; a person accepts or rejects
   (forge.proposal_status). A new or short file: its whole new text. A small change in a long file
   (firmware/main.c): edits, each {"old": lines that are in the file now, copied exactly, "new":
@@ -152,9 +157,14 @@ def _build_brief(b: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 async def read_file(ctx: ToolContext, room: str, path: str) -> dict:
-    """A file of the project (also chip/... and its hardware.yaml, system.yaml, device.yaml)."""
+    """A file of the project (hardware.yaml, system.yaml, device.yaml, firmware/..., tests/...). The
+    chip's own sources (chip/...) are Chipova's design: reading one asks the person first."""
     actor = _actor(ctx)
     p = _project(room, actor)
+    if ids.clean_path(path).startswith("chip/"):
+        ask_first(ctx, f"read the chip's source {ids.clean_path(path)}",
+                  "The chip comes from Chipova; its own design files aren't open to the AI unless you allow it. "
+                  "With a cloud model, the file leaves this computer.")
     text = projects.read(p["id"], path)
     info = projects.file_info(p["id"], ids.clean_path(path))
     _show(p["id"], actor, f"reads {path}")
@@ -225,7 +235,27 @@ async def get_build(ctx: ToolContext, room: str, build: str, lines: int = 80) ->
     if b is None or b["project_id"] != p["id"]:
         raise ValueError(f"there is no build {build!r} in this project")
     tail = builds.log_text(b).splitlines()[-max(10, min(int(lines or 80), 1000)):]
-    return {**(_build_brief(b) or {}), "log": "\n".join(tail), "outputs": [a["name"] for a in builds.artifacts(b["id"])]}
+    return {**(_build_brief(b) or {}), "log": "\n".join(tail), "outputs": outputs.names(b),
+            "next": "forge.read_output reads one of the outputs"}
+
+
+async def read_output(ctx: ToolContext, room: str, build: str, file: str) -> dict:
+    """One of a build's outputs, as text: a PCB build's "netlist" (every part, its value and each
+    pin's net), "bom.csv", "positions.csv", "erc.json", "drc.json"; any build's "log"; build is
+    a build's id or a kind ("pcb", "firmware", "registers", "chip") for its latest good build.
+    Outputs that aren't open to the AI ask the person first."""
+    actor = _actor(ctx)
+    p = _project(room, actor)
+    b = builds.get(build) if build.startswith("bld-") else builds.latest(p["id"], build, builds.SUCCEEDED)
+    if b is None or b["project_id"] != p["id"]:
+        raise ValueError(f"there is no build {build!r} in this project: give a build's id, or pcb, firmware, registers or chip")
+    name = ids.clean_path(file) if file not in ("log", "netlist") else file
+    if not outputs.is_open(b["kind"], name):
+        ask_first(ctx, f"read {name}, an output of the {b['kind']} build {b['id']}",
+                  "It isn't one of the outputs open to the AI (those it can read are what the product's page shows).")
+    text = await asyncio.to_thread(outputs.read, b, name)
+    _show(p["id"], actor, f"reads {name} of the {b['kind']} build")
+    return {"build": b["id"], "kind": b["kind"], "file": name, "text": text}
 
 
 # ------------------------------------------------------------------ the simulation
@@ -427,6 +457,9 @@ def register(app: rx.App) -> None:
                    "[{\"path\": ..., \"edits\": [{\"old\": lines in the file now, copied exactly, \"new\": what replaces them}]}]",
         "rationale": "Why, and how to check it."})
     t("forge.proposal_status", proposal_status, "What people decided", params={"room": ROOM, "proposal": "The proposal's id (prp-…)."})
+    t("forge.read_output", read_output, "Read a build's output", params={
+        "room": ROOM, "build": "A build's id (bld-…), or pcb, firmware, registers or chip for the latest good one.",
+        "file": "netlist, bom.csv, positions.csv, erc.json, drc.json, log, … (forge.get_build lists them)."})
     t("forge.build", build, "Build", "write", params={"room": ROOM, "kind": "registers, chip, firmware or pcb."})
     t("forge.get_build", get_build, "Look at a build", params={"room": ROOM, "build": "The build's id (bld-…).", "lines": "How many of its output's last lines."})
     t("forge.start_simulation", start_simulation, "Start the simulation", "write", params={"room": ROOM})
