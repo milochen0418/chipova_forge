@@ -1,0 +1,8 @@
+title: Smart temperature controller
+description: >-
+  An MCU reads a TMP1075 sensor and writes the temperature into the smart sensor chip over SPI;
+  the chip raises an interrupt above the threshold; the firmware reports the alarm on its
+  console, which the device API, the SDK and the dashboard use.
+chip: smart_sensor
+needs:
+  registers: smart_sensor_regs

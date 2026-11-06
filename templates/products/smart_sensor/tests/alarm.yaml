@@ -1,0 +1,24 @@
+# The blueprint's first end-to-end test: the app sets a threshold, the firmware writes it into the
+# chip over SPI, the sensor gets hot, the chip raises its interrupt, the firmware reports the alarm,
+# and it ends when the temperature falls back below the threshold minus the hysteresis.
+name: Alarm above the threshold
+steps:
+  - sensor: {temperature: {celsius: 25}}
+  - command: {set_threshold: {celsius: 35}}
+    expect: {threshold: 35}
+  - expect_register: {THRESHOLD: 3500}
+  - wait: 0.3
+  - command: {get_status: {}}
+    expect: {temperature: 25, above: false, alarm: false}
+  - record: {}
+  - sensor: {temperature: {celsius: 40}}
+  - expect_event: {event: alarm, within: 2, fields: {temperature: 40, threshold: 35, above: true}}
+  - expect_led: {alarm: true, chip_alarm_led: true, within: 1}
+  - expect_register: {COUNT: 1}
+  - sensor: {temperature: {celsius: 34.75}}
+  - wait: 0.5
+  - command: {get_status: {}}
+    expect: {above: true, alarm: false}
+  - sensor: {temperature: {celsius: 30}}
+  - expect_event: {event: normal, within: 2, fields: {temperature: 30, above: false}}
+  - expect_led: {alarm: false, within: 1}

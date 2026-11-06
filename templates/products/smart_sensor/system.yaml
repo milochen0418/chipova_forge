@@ -1,0 +1,26 @@
+# Chipova Forge: the board. The MCU platform, how the chip is wired to it, the sensors, the
+# UART the device API talks to, the LEDs to show. Forge makes the firmware's board.h and the
+# simulation's board from this file, and checks it against the platform and hardware.yaml.
+platform: stm32f4_discovery
+chip:
+  # The chip talks SPI: the MCU's SPI1 (PA5 SCK, PA6 MISO, PA7 MOSI) and PA4 as its select.
+  interface: spi1
+  chip_select: PA4
+  # The chip's interrupt pin -> the MCU pin that takes it (an external interrupt).
+  irq:
+    irq: PB1
+  # The chip's pins that light an LED on the board.
+  leds: [alarm_led]
+sensors:
+  - name: temperature
+    part: tmp1075
+    bus: i2c1
+    address: 0x48
+    initial:
+      celsius: 25
+console: usart2
+leds:
+  heartbeat: green
+  alarm: red
+firmware:
+  sample_ms: 100

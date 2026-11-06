@@ -1,0 +1,8 @@
+# Extra URL paths that should be proxied to the backend port instead of the
+# frontend port (re_ddns nginx). One path per line; comments (#) and blank
+# lines are ignored.
+
+# Everything Forge serves itself: signed downloads (/_forge/dl/...) and the editor's own
+# Monaco (/_forge/monaco/...). The REST API (/api/...) and the AI Hub's tool calls
+# (/_ddns_tool/...) are the platform's paths already.
+/_forge/

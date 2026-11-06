@@ -1,0 +1,14 @@
+[project]
+name = "chipova-forge-sdk"
+version = "0.1.0"
+description = "Talk to a Chipova Forge product's device, simulated or real, with the same calls"
+requires-python = ">=3.9"
+dependencies = ["PyYAML>=6.0"]
+license = {text = "MIT"}
+
+[project.optional-dependencies]
+serial = ["pyserial>=3.5"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

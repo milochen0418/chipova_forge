@@ -1,0 +1,19 @@
+# The closed loop: the electronics warm the enclosure past the chip's threshold (30 °C), the chip
+# raises its alarm and switches the fan on, the fan cools it below the threshold minus the
+# hysteresis (29.5 °C), the fan goes off, and again. With the electronics off, it settles below
+# the band and the fan stays off.
+name: The fan holds the enclosure near the threshold
+steps:
+  - command: {get_status: {}}
+    expect: {threshold: 30, hysteresis: 0.5}
+  - expect_event: {event: alarm, within: 20}
+  - expect_analog: {fan: 1, within: 2}
+  - expect_event: {event: normal, within: 20}
+  - expect_analog: {fan: 0, within: 2}
+  - expect_event: {event: alarm, within: 20}
+  - expect_analog: {temperature: {min: 29.0, max: 30.8}, within: 2}
+  - expect_register: {COUNT: {min: 2}}
+  - analog: {load: 0}
+  - expect_analog: {temperature: {max: 29.4}, fan: 0, within: 20}
+  - command: {get_status: {}}
+    expect: {above: false}

@@ -1,0 +1,42 @@
+# Chipova Forge's analog models: a SPICE circuit ngspice runs in step with the board.
+#
+# The enclosure of a product as a thermal circuit: volts are degrees Celsius, amps are watts,
+# ohms are kelvin per watt, farads are joules per kelvin. The electronics heat the enclosure
+# (load), its case loses heat to the ambient air, and a fan cools it much faster when a chip
+# pin switches the fan's MOSFET on.
+#
+#   inputs   values Forge sets (the environment): ngspice "external" sources
+#   drives   chip pins that switch something in the circuit: external sources, on or off
+#   outputs  nodes Forge reads: their value goes to the board's sensors
+title: Enclosure temperature with a fan
+netlist: |
+  * {title}
+  Vamb amb 0 dc 0 external
+  Iload 0 temp dc 0 external
+  Rcase temp amb {r_case}
+  Ccase temp 0 {c_case} ic={initial}
+  Sfan temp fanx fan 0 fanswitch
+  Rfan fanx amb {r_fan}
+  Vfan fan 0 dc 0 external
+  .model fanswitch sw vt=0.5 vh=0.1 ron=1m roff=1g
+  .tran {tstep} 1e7 0 {tstep} uic
+  .end
+parameters:
+  r_case: {value: 20, unit: K/W, title: The case to the ambient air}
+  c_case: {value: 2, unit: J/K, title: The enclosure's heat capacity}
+  r_fan: {value: 2, unit: K/W, title: Through the fan's air flow}
+  initial: {value: 28, unit: "°C", title: The enclosure at the start}
+inputs:
+  ambient: {source: vamb, title: Ambient air, unit: "°C", min: 0, max: 45, default: 25}
+  load: {source: iload, title: Heat from the electronics, unit: W, min: 0, max: 5, default: 1.5}
+drives:
+  # pcb: what the module carries for it (Forge's circuits: low_side_switch is an N-MOSFET that
+  # switches the load's ground side from the chip pin, with its flyback diode and a connector).
+  fan: {source: vfan, title: Fan (its MOSFET), on: 1.0, off: 0.0,
+        pcb: {circuit: low_side_switch, load: fan, supply: 5V}}
+outputs:
+  temperature: {node: temp, title: Inside the enclosure, unit: "°C"}
+model_limits: >-
+  A lumped thermal model: one temperature for the whole enclosure, a constant heat load, a fan
+  that is fully on or off (no spin-up, no speed control), heat paths that don't change with
+  temperature. The numbers are a plausible small enclosure, not a measured one.

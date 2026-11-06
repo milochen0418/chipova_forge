@@ -1,0 +1,90 @@
+# Chipova Forge: how apps talk to this device (the device API, the Python SDK, the dashboard).
+# On the virtual board the commands travel over the console UART; on a real board over its
+# serial port, with the same lines. One line out, one line back:
+#   send    the line the device gets ({arg} is the argument's value, times its scale, as a whole number)
+#   reply   the first word of the answer (its key=value pairs are the result); "ERR ..." is a refusal
+#   fields  how the pairs read: scale (the value times it), type (number | int | bool), unit, as (another name)
+name: smart_sensor
+title: Smart temperature controller
+uart: console
+commands:
+  ping:
+    title: Is the device there?
+    send: PING
+    reply: PONG
+  info:
+    title: Chip and firmware versions
+    send: INFO
+    reply: INFO
+    fields:
+      chip: {type: text}
+      fw: {type: text}
+      sample_ms: {type: int}
+  get_status:
+    title: Temperature, threshold and alarm
+    send: GET STATUS
+    reply: STATUS
+    fields: &status
+      temp: {scale: 0.01, unit: "°C", as: temperature}
+      threshold: {scale: 0.01, unit: "°C"}
+      hyst: {scale: 0.01, unit: "°C", as: hysteresis}
+      above: {type: bool}
+      alarm: {type: bool}
+      count: {type: int, as: alarms}
+      enabled: {type: bool}
+  set_threshold:
+    title: Set the alarm threshold
+    args:
+      celsius: {type: number, min: -40, max: 125, scale: 100}
+    send: SET THRESHOLD {celsius}
+    reply: OK
+    fields:
+      threshold: {scale: 0.01, unit: "°C"}
+  set_hysteresis:
+    title: Set the hysteresis
+    args:
+      celsius: {type: number, min: 0, max: 20, scale: 100}
+    send: SET HYST {celsius}
+    reply: OK
+    fields:
+      hyst: {scale: 0.01, unit: "°C", as: hysteresis}
+  enable:
+    title: Turn the comparison on or off
+    args:
+      enabled: {type: bool}
+    send: ENABLE {enabled}
+    reply: OK
+    fields:
+      enabled: {type: bool}
+  clear_alarm:
+    title: Clear a pending alarm
+    send: CLEAR
+    reply: OK
+events:
+  ready:
+    title: The device started
+    match: READY
+    fields:
+      chip: {type: text}
+      fw: {type: text}
+  alarm:
+    title: Above the threshold
+    match: ALARM
+    fields: *status
+  normal:
+    title: Back below the threshold
+    match: NORMAL
+    fields: *status
+  error:
+    title: The device reported an error
+    match: ERROR
+dashboard:
+  title: Smart temperature controller
+  status: get_status
+  show: [temperature, threshold, hysteresis, alarms, above, enabled]
+  controls:
+    - {command: set_threshold, arg: celsius, label: Alarm threshold, min: 0, max: 80, step: 0.5, value_from: threshold}
+    - {command: clear_alarm, label: Clear the alarm}
+  alert: above
+  environment:
+    - {sensor: temperature, setting: celsius, label: Room temperature (virtual), min: -10, max: 60, step: 0.5}

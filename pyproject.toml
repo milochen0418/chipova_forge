@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "chipova-forge"
+version = "0.1.0"
+description = "Chipova Forge - from a finished chip to a working virtual product: registers, board, firmware, co-simulation, device API and apps, with AI agents"
+authors = ["Milo Chen"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+# Developed on 3.11 (see AGENTS.md), the Python of the re_ddns App Store image (python:3.11);
+# capped below 3.15 because pyslang (the chip's ports from its RTL) has no 3.15 wheels yet.
+python = ">=3.11,<3.15"
+reflex = "0.10.0"
+reflex-monaco = "*"
+pydantic = ">=2.7"
+PyYAML = ">=6.0"
+# Builds, simulations and checks run in containers started through the Docker socket.
+docker = ">=7.1.0"
+reflex-ddns-auth = {path = "../reflex_ddns_auth", develop = true}
+PyJWT = ">=2.8"
+# The registers: one SystemRDL description -> the chip's CSR RTL, the firmware's C header and
+# the SDK's Python register access layer (PeakRDL; regblock, cheader and python are LGPL-3.0,
+# what they generate is ours).
+systemrdl-compiler = ">=1.33"
+peakrdl-regblock = ">=1.3.1"
+peakrdl-cheader = ">=1.1.0"
+peakrdl-python = ">=4.0"
+# The chip's ports and parameters, read from its (System)Verilog.
+pyslang = ">=12.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.3,<10.0.0)",
+    "pytest-asyncio (>=1.3.0,<2.0.0)",
+    "playwright (>=1.50,<2.0)",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "docker: needs a Docker daemon and the chipova-forge/sim image (skipped without them)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient`",
+]

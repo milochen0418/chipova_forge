@@ -1,0 +1,47 @@
+# Chipova Forge: how apps talk to this device. A bring-up console: the chip's registers, by offset.
+name: chip_bringup
+title: Chip bring-up console
+uart: console
+commands:
+  ping:
+    title: Is the device there?
+    send: PING
+    reply: PONG
+  info:
+    title: The chip's ID register and the firmware version
+    send: INFO
+    reply: INFO
+    fields:
+      chip: {type: text}
+      fw: {type: text}
+  read_register:
+    title: Read a register of the chip
+    args:
+      offset: {type: int, min: 0, max: 252}
+    send: READ {offset}
+    reply: VALUE
+    fields:
+      offset: {type: int}
+      value: {type: int}
+  write_register:
+    title: Write a register of the chip
+    args:
+      offset: {type: int, min: 0, max: 252}
+      value: {type: int, min: 0, max: 4294967295}
+    send: WRITE {offset} {value}
+    reply: OK
+    fields:
+      offset: {type: int}
+      value: {type: int}
+events:
+  ready:
+    title: The device started
+    match: READY
+    fields:
+      chip: {type: text}
+      fw: {type: text}
+dashboard:
+  title: Chip bring-up
+  status: info
+  show: [chip, fw]
+  controls: []

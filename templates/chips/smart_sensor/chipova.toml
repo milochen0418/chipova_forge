@@ -1,0 +1,24 @@
+# Chipova project settings: what the runs use. Change them in the project's Settings,
+# or here (every snapshot keeps this file with the sources).
+
+[design]
+top = "smart_sensor_top"
+rtl = ["rtl/smart_sensor_regs_pkg.sv", "rtl/smart_sensor_regs.sv", "rtl/spi_apb_bridge.v", "rtl/smart_sensor_top.sv"]
+sdc = "constraints/smart_sensor.sdc"
+clock_port = "clk"
+clock_period_ns = 40.0
+
+[sim]
+testbench = "tb_smart_sensor"
+sources = ["tb/tb_smart_sensor.sv"]
+
+[asic]
+pdk = "skywater130"
+
+[fpga]
+device = "up5k"
+package = "sg48"
+pcf = ""
+
+[ams]
+spice = ""

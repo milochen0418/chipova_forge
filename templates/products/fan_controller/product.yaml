@@ -1,0 +1,9 @@
+title: Enclosure fan controller
+description: >-
+  The smart sensor chip as a thermostat: above its threshold it raises the alarm and its alarm
+  pin switches a fan on (a MOSFET on the module); below the threshold minus the hysteresis the
+  fan goes off. The enclosure's temperature comes from an analog model (ngspice) that runs in
+  step with the board, so firmware, chip and physics close the loop.
+chip: smart_sensor
+needs:
+  registers: smart_sensor_regs

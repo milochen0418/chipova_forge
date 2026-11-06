@@ -1,0 +1,79 @@
+# Chipova Forge's virtual components: the parts a board can have besides the MCU and the chip.
+# Each has its simulation model (Renode), how it connects, the settings Forge drives (the board's
+# environment), and the real part for the bill of materials and the schematic.
+tmp108:
+  title: TMP108 digital temperature sensor
+  kind: sensor
+  bus: i2c
+  addresses: [0x48, 0x49, 0x4A, 0x4B]
+  renode:
+    type: Sensors.ForgeTMP108
+    source: ForgeTMP108.cs
+  settings:
+    celsius:
+      property: MilliCelsius
+      scale: 1000
+      min: -40
+      max: 125
+      unit: "°C"
+      default: 25
+  model_limits: >-
+    Digital model of what the firmware reads: 0.0625 °C steps, no conversion time, no noise,
+    no self-heating. The temperature is whatever Forge sets.
+  part:
+    manufacturer: Texas Instruments
+    mpn: TMP108AIYFFR
+    description: "Temperature sensor, I2C, ±0.75 °C, 1.4-3.6 V, DSBGA-6"
+    footprint: Package_BGA:Texas_DSBGA-6_0.9x1.4mm_Layout2x3_P0.5mm
+    supply: [1.4, 3.6]
+tmp1075:
+  title: TMP1075 digital temperature sensor
+  kind: sensor
+  bus: i2c
+  addresses: [0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F]
+  renode:
+    # The same temperature register as the TMP108 (12 bits, 0.0625 °C, left-justified at
+    # pointer 0), so the same model.
+    type: Sensors.ForgeTMP108
+    source: ForgeTMP108.cs
+  settings:
+    celsius:
+      property: MilliCelsius
+      scale: 1000
+      min: -40
+      max: 125
+      unit: "°C"
+      default: 25
+  model_limits: >-
+    Digital model of what the firmware reads: 0.0625 °C steps, no conversion time, no noise,
+    no self-heating, no alert pin. The temperature is whatever Forge sets.
+  part:
+    manufacturer: Texas Instruments
+    mpn: TMP1075DR
+    description: "Temperature sensor, I2C, ±1 °C, 1.62-5.5 V, SOIC-8"
+    footprint: Package_SO:SOIC-8_3.9x4.9mm_P1.27mm
+    supply: [1.62, 5.5]
+  # The board: its package and what each pin does (the address pins set the I2C address,
+  # 0x48 plus A2 A1 A0, each tied to ground or the supply).
+  pcb:
+    package: soic8
+    pins:
+      "1": {name: SDA, type: bidirectional, role: sda, side: left}
+      "2": {name: SCL, type: input, role: scl, side: left}
+      "3": {name: ALERT, type: open_collector, role: nc, side: right}
+      "4": {name: GND, type: power_in, role: gnd, side: bottom}
+      "5": {name: A2, type: input, role: addr2, side: right}
+      "6": {name: A1, type: input, role: addr1, side: right}
+      "7": {name: A0, type: input, role: addr0, side: right}
+      "8": {name: V+, type: power_in, role: vdd, side: top}
+led:
+  title: Indicator LED
+  kind: indicator
+  renode:
+    type: Miscellaneous.LED
+  model_limits: "On or off: no current, colour or brightness."
+  part:
+    manufacturer: Kingbright
+    mpn: APT1608SGC
+    description: "LED, green, 0603, 20 mA"
+    footprint: LED_SMD:LED_0603_1608Metric

@@ -1,0 +1,9 @@
+# The package plan: what the die goes in, and which pin each of its signals reaches (pins.csv).
+[package]
+type = "QFN-16"
+pins = 16
+body_mm = [3.0, 3.0]
+pitch_mm = 0.5
+exposed_pad = "VSS"
+osat = ""
+notes = "A first plan: the SPI pins on one side, clock and reset on the next, the interrupt and alarm pins on the third."

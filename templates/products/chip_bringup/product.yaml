@@ -1,0 +1,10 @@
+title: Chip bring-up board
+description: >-
+  The MCU, the chip and a console: read and write any of the chip's registers through the device
+  API. Works with any chip; a chip with no bus sits in Forge's register harness (the Heartbeat
+  example lights an LED with its pulses).
+chip: heartbeat
+# How fast each example chip's clock runs in the simulation (the Heartbeat pulses every 256
+# clocks: at 1 kHz its LED blinks about four times a second).
+simulation_for_chips:
+  heartbeat: {frequency_hz: 1000}

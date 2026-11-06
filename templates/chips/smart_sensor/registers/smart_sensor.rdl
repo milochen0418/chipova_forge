@@ -1,0 +1,49 @@
+// The smart sensor chip's registers, as the MCU sees them on its bus (APB3, 32-bit words).
+// One description, four outputs (Chipova Forge, Registers step): the chip's CSR block
+// (rtl/smart_sensor_regs.sv, PeakRDL-regblock), the firmware's C header, the Python register
+// access layer of the SDK, and the register table people read. Temperatures are signed, in
+// hundredths of a degree Celsius (2500 = 25.00 °C).
+addrmap smart_sensor_regs {
+    name = "Smart sensor";
+    desc = "Compares a temperature with a threshold and raises an interrupt on an alarm.";
+    default regwidth = 32;
+    default accesswidth = 32;
+
+    reg {
+        name = "Chip ID";
+        desc = "Reads 0x534E5331 (\"SNS1\").";
+        field { sw = r; hw = na; } VALUE[31:0] = 32'h534E5331;
+    } ID @ 0x00;
+
+    reg {
+        name = "Control";
+        field { sw = rw; hw = r; desc = "Compare the temperature with the threshold."; } EN[0:0] = 0;
+        field { sw = rw; hw = r; desc = "Drive the IRQ pin while an alarm is pending."; } IRQ_EN[1:1] = 0;
+    } CTRL @ 0x04;
+
+    reg {
+        name = "Threshold";
+        field { sw = rw; hw = r; desc = "Alarm above this temperature (0.01 degC, signed)."; } VALUE[15:0] = 16'd3000;
+    } THRESHOLD @ 0x08;
+
+    reg {
+        name = "Temperature";
+        field { sw = rw; hw = r; desc = "The temperature the MCU read last (0.01 degC, signed)."; } VALUE[15:0] = 16'd0;
+    } TEMP @ 0x0C;
+
+    reg {
+        name = "Status";
+        field { sw = r; hw = w; desc = "The temperature is above the threshold now."; } ABOVE[0:0];
+        field { sw = rw; onwrite = woclr; hw = r; hwset; desc = "An alarm happened (write 1 to clear)."; } ALARM[1:1] = 0;
+    } STATUS @ 0x10;
+
+    reg {
+        name = "Hysteresis";
+        field { sw = rw; hw = r; desc = "Once above, the alarm ends only below threshold minus this (0.01 degC)."; } VALUE[15:0] = 16'd50;
+    } HYST @ 0x14;
+
+    reg {
+        name = "Alarm count";
+        field { sw = r; hw = w; desc = "How many alarms since reset."; } VALUE[15:0];
+    } COUNT @ 0x18;
+};

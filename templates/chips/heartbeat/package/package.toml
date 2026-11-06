@@ -1,0 +1,9 @@
+# The package plan: what the die goes in, and which pin each of its signals reaches (pins.csv).
+# Lab → "Check the package plan" checks it against the design's ports and draws the bond diagram.
+[package]
+type = "QFN-16"
+pins = 16
+body_mm = [3.0, 3.0]
+pitch_mm = 0.5
+osat = ""  # who assembles it, once chosen
+notes = "A first plan for the Heartbeat test chip; a real one follows the assembler's rules and the padframe."

@@ -1,0 +1,64 @@
+# Chipova Forge platform: an MCU board the simulation (Renode) and the firmware templates know.
+id: stm32f4_discovery
+title: STM32F4 Discovery (STM32F407VG)
+description: >-
+  ST's Discovery kit: a Cortex-M4 at 16 MHz after reset (the templates don't start the PLL),
+  1 MB flash, 128 KB SRAM, four user LEDs and a user button. Renode 1.17's model of it, with
+  Forge's corrections (renode_fixes.repl).
+mcu:
+  part: STM32F407VGT6
+  core: cortex-m4
+  package: LQFP-100
+  clock_hz: 16000000
+  flash_kb: 1024
+  ram_kb: 128
+renode:
+  repl: platform.repl
+  files: [platform.repl, renode_fixes.repl]
+  fixes: renode_fixes.repl
+firmware:
+  toolchain: arm-none-eabi
+  cflags: [-mcpu=cortex-m4, -mthumb]
+  linker_script: stm32f4.ld
+  sources: [startup.c]
+  headers: [stm32f4_min.h, forge_chip.h]
+  chip_drivers: {spi: forge_chip_spi.c, apb3: forge_chip_bus.c}
+gpio:
+  ports: {A: 0x40020000, B: 0x40020400, C: 0x40020800, D: 0x40020C00, E: 0x40021000, F: 0x40021400, G: 0x40021800, H: 0x40021C00, I: 0x40022000}
+  # EXTI line n -> NVIC interrupt and its handler, for a pin used as an interrupt input.
+  exti:
+    0: {irq: 6, handler: EXTI0_IRQHandler}
+    1: {irq: 7, handler: EXTI1_IRQHandler}
+    2: {irq: 8, handler: EXTI2_IRQHandler}
+    3: {irq: 9, handler: EXTI3_IRQHandler}
+    4: {irq: 10, handler: EXTI4_IRQHandler}
+  # Pins the board itself uses (not free for the chip or sensors).
+  reserved:
+    PA0: user button
+    PA13: SWDIO (debugger)
+    PA14: SWCLK (debugger)
+    PD12: green LED
+    PD13: orange LED
+    PD14: red LED
+    PD15: blue LED
+uarts:
+  usart2: {renode: sysbus.usart2, base: USART2_BASE, tx: PA2, rx: PA3, af: 7, irq: 38, handler: USART2_IRQHandler, clock: "RCC_APB1ENR |= 1u << 17"}
+  usart1: {renode: sysbus.usart1, base: USART1_BASE, tx: PA9, rx: PA10, af: 7, irq: 37, handler: USART1_IRQHandler, clock: "RCC_APB2ENR |= 1u << 4"}
+i2c:
+  i2c1: {renode: sysbus.i2c1, base: I2C1_BASE, scl: PB6, sda: PB7, af: 4, clock: "RCC_APB1ENR |= 1u << 21"}
+  i2c2: {renode: sysbus.i2c2, base: I2C2_BASE, scl: PB10, sda: PB11, af: 4, clock: "RCC_APB1ENR |= 1u << 22"}
+spi:
+  spi1: {renode: sysbus.spi1, base: SPI1_BASE, sck: PA5, miso: PA6, mosi: PA7, af: 5, clock: "RCC_APB2ENR |= 1u << 12"}
+  spi2: {renode: sysbus.spi2, base: SPI2_BASE, sck: PB13, miso: PB14, mosi: PB15, af: 5, clock: "RCC_APB1ENR |= 1u << 14"}
+# Memory windows for chips on the external bus (FSMC NOR/SRAM banks; bank 1 = NE1 stays memory).
+bus_windows:
+  fsmc_ne2: {base: 0x64000000, size: 0x04000000, bank: 1, select: PG9}
+  fsmc_ne3: {base: 0x68000000, size: 0x04000000, bank: 2, select: PG10}
+  fsmc_ne4: {base: 0x6C000000, size: 0x04000000, bank: 3, select: PG12}
+leds:
+  green: {pin: PD12, renode: sysbus.gpioPortD.UserLED}
+  orange: {pin: PD13, renode: sysbus.gpioPortD.ledOrange}
+  red: {pin: PD14, renode: sysbus.gpioPortD.ledRed}
+  blue: {pin: PD15, renode: sysbus.gpioPortD.ledBlue}
+buttons:
+  user: {pin: PA0, renode: sysbus.gpioPortA.UserButton}

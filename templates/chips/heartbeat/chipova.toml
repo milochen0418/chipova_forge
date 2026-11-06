@@ -1,0 +1,24 @@
+# Chipova project settings: what the runs use. Change them in the project's Settings,
+# or here (every snapshot keeps this file with the sources).
+
+[design]
+top = "heartbeat"
+rtl = ["rtl/heartbeat.v"]
+sdc = "constraints/heartbeat.sdc"
+clock_port = "clk"
+clock_period_ns = 10.0
+
+[sim]
+testbench = "tb_heartbeat"
+sources = ["tb/tb_heartbeat.v"]
+
+[asic]
+pdk = "skywater130"
+
+[fpga]
+device = "up5k"
+package = "sg48"
+pcf = ""
+
+[ams]
+spice = ""

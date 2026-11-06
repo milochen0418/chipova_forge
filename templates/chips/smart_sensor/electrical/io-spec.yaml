@@ -1,0 +1,19 @@
+# The chip's electrical limits, as its data sheet will state them: Forge checks the board
+# against these (supply, I/O levels, clock and SPI speed).
+supply:
+  vdd_min: 3.0
+  vdd_typ: 3.3
+  vdd_max: 3.6
+  current_typ_ma: 0.5
+  current_max_ma: 2.0
+io:
+  voltage: 3.3
+  vih_min: 2.0
+  vil_max: 0.8
+  drive_ma: 4
+clock:
+  max_hz: 25000000
+spi:
+  mode: 0
+  # sclk is sampled by clk through two flip-flops: at most clk / 8.
+  max_sclk_hz: 3125000

@@ -1,0 +1,16 @@
+# The device protocol: every command answers, bad values are refused by the firmware itself.
+name: Device protocol
+steps:
+  - command: {ping: {}}
+  - command: {info: {}}
+    expect: {chip: "0x534e5331", fw: "1.0", sample_ms: 100}
+  - command: {set_hysteresis: {celsius: 1.5}}
+    expect: {hysteresis: 1.5}
+  - expect_register: {HYST: 150}
+  - command: {enable: {enabled: false}}
+    expect: {enabled: false}
+  - expect_register: {CTRL: 2}
+  - command: {enable: {enabled: true}}
+    expect: {enabled: true}
+  - uart: {send: "SET THRESHOLD lots", expect: "ERR bad value", within: 1}
+  - uart: {send: "FROBNICATE", expect: "ERR unknown command", within: 1}

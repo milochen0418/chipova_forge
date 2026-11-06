@@ -1,0 +1,19 @@
+# The package's pins (QFN: pin 1 at the top of the left side, counter-clockwise).
+# kind: input, output, inout (a port of the design), power, ground, nc (not connected).
+pin,signal,kind,pad
+1,clk,input,CLK
+2,nreset,input,NRESET
+3,,nc,
+4,VSS,ground,VSS
+5,,nc,
+6,,nc,
+7,,nc,
+8,,nc,
+9,out,output,OUT
+10,,nc,
+11,,nc,
+12,VDD,power,VDD
+13,,nc,
+14,,nc,
+15,,nc,
+16,,nc,

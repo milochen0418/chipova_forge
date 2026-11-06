@@ -1,0 +1,20 @@
+// Chipova Forge's STM32F4 Discovery board for Renode 1.17.0: Renode's own board (STM32F407VG,
+// user button on PA0, LEDs on port D), with
+//   - the GPIO -> EXTI wiring put back (renode_fixes.repl),
+//   - all four user LEDs (Renode models only the green one),
+//   - FSMC bank 1 cut to its first 64 MB (NE1): NE2-NE4 (0x64000000-0x6FFFFFFF) are free for
+//     chips on the MCU's external bus,
+//   - the core clock of a STM32F407 after reset (16 MHz HSI; Renode's default is 72 MHz): the
+//     firmware templates don't start the PLL, so SysTick and their delays match a real board.
+using "platforms/boards/stm32f4_discovery-kit.repl"
+using "./renode_fixes.repl"
+
+ledOrange: Miscellaneous.LED @ gpioPortD
+ledRed: Miscellaneous.LED @ gpioPortD
+ledBlue: Miscellaneous.LED @ gpioPortD
+
+fsmcBank1:
+    size: 0x04000000
+
+nvic:
+    systickFrequency: 16000000

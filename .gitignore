@@ -1,0 +1,32 @@
+.web
+.states
+# Reflex / Python
+assets/external/
+.states/
+.web/
+*.db
+*.py[cod]
+__pycache__/
+
+# Uploaded files
+uploaded_files/
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
+
+# Playwright / Test artifacts
+testcases/**/output/
+.playwright-mcp/
+.pytest_cache/
+
+# Poetry virtualenv (kept in-project for AI agent / IDE access)
+.venv/
+
+# Videos and their sources: too big for git
+docs/videos/
+
+# Reflex runtime
+reflex.lock/

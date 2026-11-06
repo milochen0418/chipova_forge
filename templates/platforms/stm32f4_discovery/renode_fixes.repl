@@ -1,0 +1,171 @@
+// Chipova Forge: corrections to Renode 1.17.0's STM32F4 platform (platforms/cpus/stm32f4.repl).
+//
+// That file first connects every GPIO pin to its EXTI line ([0-15] -> exti@[0-15]), then, for
+// the timers' input capture, connects the pins again; the second list replaces the first, so no
+// GPIO input ever reaches the EXTI (even the Discovery board's user button on PA0 can't raise
+// EXTI0). Here each pin gets both again: its timer inputs and its EXTI line.
+// Generated from Renode 1.17.0's stm32f4.repl, with the Discovery kit's LEDs (PD12-PD15, the
+// external LED on PA5) kept on their pins: a pin's list here replaces every earlier one.
+
+gpioPortA:
+    0 -> timer2@00 | timer5@00 | exti@0
+    1 -> timer2@01 | timer5@01 | exti@1
+    2 -> timer2@02 | timer5@02 | timer9@00 | exti@2
+    3 -> timer2@03 | timer5@03 | timer9@01 | exti@3
+    4 -> exti@4
+    5 -> timer2@00 | timer8@00 | exti@5 | externalLed@0
+    6 -> timer3@00 | timer13@00 | exti@6
+    7 -> timer1@00 | timer3@01 | timer8@00 | timer14@00 | exti@7
+    8 -> timer1@00 | exti@8
+    9 -> timer1@01 | exti@9
+    10 -> timer1@02 | exti@10
+    11 -> timer1@03 | exti@11
+    12 -> exti@12
+    13 -> exti@13
+    14 -> exti@14
+    15 -> timer2@00 | exti@15
+
+gpioPortB:
+    0 -> timer1@01 | timer3@02 | timer8@01 | exti@0
+    1 -> timer1@02 | timer3@03 | timer8@02 | exti@1
+    2 -> exti@2
+    3 -> timer2@01 | exti@3
+    4 -> timer3@00 | exti@4
+    5 -> timer3@01 | exti@5
+    6 -> timer4@00 | exti@6
+    7 -> timer4@01 | exti@7
+    8 -> timer4@02 | timer10@00 | exti@8
+    9 -> timer4@03 | timer11@00 | exti@9
+    10 -> timer2@02 | exti@10
+    11 -> timer2@03 | exti@11
+    12 -> exti@12
+    13 -> timer1@00 | exti@13
+    14 -> timer1@01 | timer8@01 | timer12@00 | exti@14
+    15 -> timer1@02 | timer8@02 | timer12@01 | exti@15
+
+gpioPortC:
+    0 -> exti@0
+    1 -> exti@1
+    2 -> exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> exti@5
+    6 -> timer3@00 | timer8@00 | exti@6
+    7 -> timer3@01 | timer8@01 | exti@7
+    8 -> timer3@02 | timer8@02 | exti@8
+    9 -> timer3@03 | timer8@03 | exti@9
+    10 -> exti@10
+    11 -> exti@11
+    12 -> exti@12
+    13 -> exti@13
+    14 -> exti@14
+    15 -> exti@15
+
+gpioPortD:
+    0 -> exti@0
+    1 -> exti@1
+    2 -> exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> exti@5
+    6 -> exti@6
+    7 -> exti@7
+    8 -> exti@8
+    9 -> exti@9
+    10 -> exti@10
+    11 -> exti@11
+    12 -> timer4@00 | exti@12 | UserLED@0
+    13 -> timer4@01 | exti@13 | ledOrange@0
+    14 -> timer4@02 | exti@14 | ledRed@0
+    15 -> timer4@03 | exti@15 | ledBlue@0
+
+gpioPortE:
+    0 -> exti@0
+    1 -> exti@1
+    2 -> exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> timer9@00 | exti@5
+    6 -> timer9@01 | exti@6
+    7 -> exti@7
+    8 -> timer1@00 | exti@8
+    9 -> timer1@00 | exti@9
+    10 -> timer1@01 | exti@10
+    11 -> timer1@01 | exti@11
+    12 -> timer1@02 | exti@12
+    13 -> timer1@02 | exti@13
+    14 -> timer1@03 | exti@14
+    15 -> exti@15
+
+gpioPortF:
+    0 -> exti@0
+    1 -> exti@1
+    2 -> exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> exti@5
+    6 -> timer10@00 | exti@6
+    7 -> timer11@00 | exti@7
+    8 -> timer13@00 | exti@8
+    9 -> timer14@00 | exti@9
+    10 -> exti@10
+    11 -> exti@11
+    12 -> exti@12
+    13 -> exti@13
+    14 -> exti@14
+    15 -> exti@15
+
+gpioPortG:
+    0 -> exti@0
+    1 -> exti@1
+    2 -> exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> exti@5
+    6 -> exti@6
+    7 -> exti@7
+    8 -> exti@8
+    9 -> exti@9
+    10 -> exti@10
+    11 -> exti@11
+    12 -> exti@12
+    13 -> exti@13
+    14 -> exti@14
+    15 -> exti@15
+
+gpioPortH:
+    0 -> exti@0
+    1 -> exti@1
+    2 -> exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> exti@5
+    6 -> timer12@00 | exti@6
+    7 -> exti@7
+    8 -> exti@8
+    9 -> timer12@01 | exti@9
+    10 -> timer5@00 | exti@10
+    11 -> timer5@01 | exti@11
+    12 -> timer5@02 | exti@12
+    13 -> timer8@00 | exti@13
+    14 -> timer8@01 | exti@14
+    15 -> timer8@02 | exti@15
+
+gpioPortI:
+    0 -> timer5@03 | exti@0
+    1 -> exti@1
+    2 -> timer8@03 | exti@2
+    3 -> exti@3
+    4 -> exti@4
+    5 -> timer8@00 | exti@5
+    6 -> timer8@01 | exti@6
+    7 -> timer8@02 | exti@7
+    8 -> exti@8
+    9 -> exti@9
+    10 -> exti@10
+    11 -> exti@11
+    12 -> exti@12
+    13 -> exti@13
+    14 -> exti@14
+    15 -> exti@15
+

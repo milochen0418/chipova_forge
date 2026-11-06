@@ -1,0 +1,16 @@
+# Chipova Forge: the board. The MCU platform, how the chip is wired to it, the sensors, the
+# UART the device API talks to, the LEDs to show. Forge makes the firmware's board.h and the
+# simulation's board from this file, and checks it against the platform and hardware.yaml.
+platform: stm32f4_discovery
+chip:
+  # The Heartbeat has no bus: in the simulation it sits in Forge's register harness, on the
+  # MCU's external bus (FSMC bank NE2, 0x64000000).
+  interface: fsmc_ne2
+  irq: {}
+  # Its `out` pin lights an LED on the board.
+  leds: [out]
+sensors: []
+console: usart2
+leds:
+  heartbeat: green
+firmware: {}

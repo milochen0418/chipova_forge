@@ -1,0 +1,14 @@
+# The Heartbeat in its harness: it answers, its ID reads FRG1, and it pulses once every 256 clocks
+# (at the simulation's 1 kHz: about four pulses a second) once the firmware releases its reset.
+name: The chip answers and pulses
+steps:
+  - command: {ping: {}}
+  - command: {read_register: {offset: 0}}
+    expect: {value: 0x46524731}
+  - command: {read_register: {offset: 4}}
+    expect: {value: 0}
+  - command: {read_register: {offset: 16}}
+  - wait: 2
+  - command: {read_register: {offset: 16}}
+    expect: {value: {min: 5}}
+  - expect_led: {chip_out: any, within: 1}

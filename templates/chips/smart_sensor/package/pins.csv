@@ -1,0 +1,17 @@
+pin,signal,kind,pad
+1,spi_sclk,input,SCLK
+2,spi_mosi,input,MOSI
+3,spi_miso,output,MISO
+4,spi_cs_n,input,CS_N
+5,VSS,ground,VSS
+6,clk,input,CLK
+7,rst_n,input,RST_N
+8,,nc,
+9,irq,output,IRQ
+10,alarm_led,output,ALARM
+11,,nc,
+12,VDD,power,VDD
+13,,nc,
+14,,nc,
+15,VSS,ground,VSS
+16,VDD,power,VDD
