@@ -112,7 +112,8 @@ def editor_panel(height: str = "62vh") -> rx.Component:
 def build_row(b: BuildRow) -> rx.Component:
     return rx.el.div(
         rx.el.div(
-            rx.el.span(b.kind, class_name="font-semibold text-slate-100 capitalize w-20"),
+            rx.el.span(rx.match(b.kind, ("pcb", "PCB"), ("registers", "Registers"), ("chip", "Chip"), ("firmware", "Firmware"), b.kind),
+                       class_name="font-semibold text-slate-100 w-20"),
             status_badge(b.status, small=True),
             rx.el.span(b.summary, class_name="text-xs text-slate-400 truncate"),
             class_name="flex items-center gap-2 min-w-0",

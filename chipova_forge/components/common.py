@@ -24,7 +24,7 @@ STATUS_STYLE = {
     "CANCELED": ("bg-slate-600/20 text-slate-400 border-slate-600/40", "Canceled"),
     "TIMED_OUT": ("bg-orange-500/15 text-orange-300 border-orange-500/30", "Timed out"),
     "PROPOSED": ("bg-violet-500/15 text-violet-300 border-violet-500/30", "Proposed"),
-    "APPROVED": ("bg-emerald-500/15 text-emerald-300 border-emerald-500/30", "Accepted"),
+    "APPROVED": ("bg-emerald-500/15 text-emerald-300 border-emerald-500/30", "Approved"),
     "REJECTED": ("bg-rose-500/15 text-rose-300 border-rose-500/30", "Rejected"),
     "EXPIRED": ("bg-slate-600/20 text-slate-400 border-slate-600/40", "Expired"),
     "PENDING": ("bg-slate-600/20 text-slate-400 border-slate-600/40", "Pending"),
@@ -36,6 +36,10 @@ STATUS_STYLE = {
     "BLOCKED": ("bg-rose-900/30 text-rose-300 border-rose-700/40", "BLOCKED"),
     "NOT_RUN": ("bg-slate-600/20 text-slate-300 border-slate-600/40", "NOT RUN"),
     "NOT_CONFIGURED": ("bg-slate-700/30 text-slate-400 border-slate-600/40", "NOT CONFIGURED"),
+    # Tool images
+    "INSTALLED": ("bg-emerald-500/15 text-emerald-300 border-emerald-500/30", "Installed"),
+    "MISSING": ("bg-amber-500/15 text-amber-300 border-amber-500/30", "Not installed"),
+    "INSTALLING": ("bg-sky-500/15 text-sky-300 border-sky-500/30", "Installing"),
     # Releases
     "DRAFT": ("bg-slate-600/20 text-slate-300 border-slate-600/40", "Draft"),
     "IN_REVIEW": ("bg-sky-500/15 text-sky-300 border-sky-500/30", "In review"),

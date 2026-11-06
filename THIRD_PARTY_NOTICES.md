@@ -19,3 +19,5 @@ Python packages the app uses (from PyPI): Reflex (Apache-2.0), reflex-monaco (Ap
 pydantic (MIT), PyYAML (MIT), docker (Apache-2.0), PyJWT (MIT), systemrdl-compiler (MIT),
 PeakRDL-regblock, PeakRDL-cheader, PeakRDL-python (LGPL-3.0, used as libraries unmodified;
 PeakRDL-regblock's generated RTL carries its own notice), pyslang (MIT).
+
+Icons in the app and the README's icon: [Lucide](https://lucide.dev) (ISC).

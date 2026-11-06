@@ -122,3 +122,28 @@ async def test_the_fan_closes_the_loop_through_the_analog_side(queue, me):
     s = service.get(run["session_id"])
     evidence = {e["name"] for e in (s["summary"] or {}).get("evidence", [])}
     assert "events.jsonl" in evidence
+
+
+def test_a_missing_tool_image_is_built_in_the_app(tmp_path, monkeypatch):
+    from chipova_forge.jobs import tools
+
+    (tmp_path / "tiny").mkdir()
+    (tmp_path / "tiny" / "Dockerfile").write_text("FROM debian:trixie-slim\nRUN echo forge-tool-test > /forge.txt\n")
+    tag = "chipova-forge/test-tool:1"
+    monkeypatch.setattr(tools, "DOCKERFILES", tmp_path)
+    monkeypatch.setattr(tools, "TOOLS", {"tiny": {"image": tag, "folder": "tiny", "title": "Tiny", "what": "a test", "size": "small"}})
+    client = docker_runner.client()
+    try:
+        client.images.remove(tag, force=True)
+    except Exception:  # noqa: BLE001
+        pass
+    assert tools.missing() == ["tiny"]
+    tools.install()
+    import time as _t
+
+    end = _t.time() + 300
+    while tools.busy() and _t.time() < end:
+        _t.sleep(1)
+    assert tools.progress["tiny"]["status"] == "done", tools.progress["tiny"]
+    assert tools.missing() == []
+    client.images.remove(tag, force=True)

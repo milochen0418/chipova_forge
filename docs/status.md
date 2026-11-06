@@ -18,7 +18,8 @@ What Chipova Forge does today (2026-11-06), what it doesn't, and what was checke
   controller closes firmware → chip → fan → temperature → sensor.
 - **Device API**: one protocol for the simulated and a real board; REST API with tokens, events
   (SSE), the Python SDK (virtual or serial).
-- **App**: a dashboard built on the device API.
+- **App**: a dashboard built on the device API; a reply to anyone's command (a person's, the AI's,
+  a script's) updates everyone's tiles, and older events can't undo it.
 - **Tests and release**: system tests in fresh simulations; release checks (chip, contract,
   board, registers, builds, tests, schematic & PCB); packages with SHA-256 manifests; approval
   by someone else.
@@ -27,11 +28,14 @@ What Chipova Forge does today (2026-11-06), what it doesn't, and what was checke
   positions, KiCad files, pictures.
 - **AI**: 22 `forge.*` tools for the AI Hub; proposals that people decide; the audit log.
 - **People**: roles, the link's access, members.
+- **Tools**: when its two images aren't on the computer (an App Store install doesn't bring them), the home page
+  builds them in the app, with progress.
+- **AI proposals** show as a diff: only the changed lines and three around them, numbered, with the AI's reason.
 
 ## Checked
 
-- 38 unit tests, 4 container tests (builds, a live session, both smart-sensor system tests, a
-  release approved by a reviewer, the Heartbeat in its harness, both PCBs, the analog loop).
+- 38 unit tests, 5 container tests (builds, a live session, both smart-sensor system tests, a
+  release approved by a reviewer, the Heartbeat in its harness, both PCBs, the analog loop, building a tool image).
 - Browser suites: `smoke_home`, `lab_flow`, `release_review`, `ai_api`, `analog_loop`.
 
 ## Not done, or limited

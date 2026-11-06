@@ -4,12 +4,15 @@ collection (what Chipova publishes)."""
 
 from __future__ import annotations
 
+import asyncio
+
 import dataclasses
 import logging
 
 import reflex as rx
 
 from chipova_forge.contract import chip_package
+from chipova_forge.jobs import tools
 from chipova_forge.services import presence, projects
 from chipova_forge.sessions import service
 from chipova_forge.states.ui_state import UiState
@@ -53,8 +56,36 @@ def _collection_items() -> list[OptionRow]:
         return []
 
 
+@dataclasses.dataclass
+class ToolRow:
+    key: str = ""
+    title: str = ""
+    what: str = ""
+    size: str = ""
+    status: str = ""  # INSTALLED | MISSING | INSTALLING | ERROR
+    line: str = ""
+
+
+def _tool_rows() -> list[ToolRow]:
+    rows = []
+    for k, spec in tools.TOOLS.items():
+        p = tools.progress.get(k, {})
+        if p.get("status") == "installing":
+            status = "INSTALLING"
+        elif tools.installed(k):
+            status = "INSTALLED"
+        elif p.get("status") == "error":
+            status = "ERROR"
+        else:
+            status = "MISSING"
+        rows.append(ToolRow(key=k, title=spec["title"], what=spec["what"], size=spec["size"], status=status,
+                            line=p.get("line", "") if status in ("INSTALLING", "ERROR") else ""))
+    return rows
+
+
 class HomeState(rx.State):
     projects: list[ProjectRow] = []
+    tools: list[ToolRow] = []
     templates: list[OptionRow] = []
     chips: list[OptionRow] = []
     collection: list[OptionRow] = []
@@ -81,6 +112,7 @@ class HomeState(rx.State):
                                    interface=(p.get("chip") or {}).get("interface", ""), owner=p["owner_name"], updated=p["updated_at"],
                                    simulation=s["status"] if s else "", people=len(watching.get(p["id"], [])) if isinstance(watching, dict) else 0))
         self.projects = rows
+        self.tools = _tool_rows()
         self.templates = [OptionRow(id=k, title=str(v.get("title", k)), description=str(v.get("description", "")))
                           for k, v in projects.product_templates().items()]
         self.chips = [OptionRow(id=k, title=v["title"], description=v["description"]) for k, v in chip_package.example_chips().items()]
@@ -162,3 +194,30 @@ class HomeState(rx.State):
         self.new_title = ""
         self._upload, self.upload_name = b"", ""
         return rx.redirect(f"/p/{p['id']}")
+
+
+class ToolsState(HomeState):
+    """Installing Forge's tool images from the home page."""
+
+    @rx.var
+    def tools_missing(self) -> bool:
+        return any(r.status != "INSTALLED" for r in self.tools)
+
+    @rx.var
+    def tools_busy(self) -> bool:
+        return any(r.status == "INSTALLING" for r in self.tools)
+
+    @rx.event(background=True)
+    async def install_tools(self):
+        tools.install()
+        while True:
+            async with self:
+                self.tools = _tool_rows()
+            if not tools.busy():
+                break
+            await asyncio.sleep(2)
+        async with self:
+            self.tools = _tool_rows()
+        if not tools.missing():
+            return rx.toast.success("Forge's tools are installed")
+        return rx.toast.error("A tool didn't install: see the line under it")

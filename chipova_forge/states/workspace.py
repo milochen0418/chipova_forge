@@ -28,7 +28,7 @@ from chipova_forge.jobs import builds
 from chipova_forge.services import audit, downloads, presence, projects, proposals, releases, systemtests
 from chipova_forge.services.actors import Actor
 from chipova_forge.sessions import service
-from chipova_forge.states.room import EVERYTHING, ProjectRoom, last_evidence_session, note, publish, push_later, remember_device_values
+from chipova_forge.states.room import EVERYTHING, ProjectRoom, last_evidence_session, note, publish, push_later
 from chipova_forge.states.ui_state import UiState
 from chipova_forge.system import board as board_mod
 from chipova_forge.system import catalog, diagram
@@ -151,6 +151,51 @@ class DiffRow:
     path: str = ""
     old: str = ""
     new: str = ""
+    added: int = 0
+    removed: int = 0
+
+
+@dataclasses.dataclass
+class DiffLineRow:
+    """One line of a proposal's diff: file (its path), hunk (@@ where), add, del or ctx."""
+
+    kind: str = "ctx"
+    text: str = ""
+    old_no: str = ""
+    new_no: str = ""
+
+
+def diff_lines(path: str, old: str, new: str) -> tuple[list[DiffLineRow], int, int]:
+    """The changed lines of one file with three lines around each change, numbered."""
+    import difflib  # noqa: PLC0415
+    import re  # noqa: PLC0415
+
+    out = [DiffLineRow(kind="file", text=path)]
+    added = removed = 0
+    a, b = old.splitlines(), new.splitlines()
+    o = n = 0
+    for line in difflib.unified_diff(a, b, lineterm="", n=3):
+        if line.startswith(("---", "+++")):
+            continue
+        if line.startswith("@@"):
+            m = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)", line)
+            o, n = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+            out.append(DiffLineRow(kind="hunk", text=line))
+        elif line.startswith("+"):
+            out.append(DiffLineRow(kind="add", text=line[1:], new_no=str(n)))
+            n += 1
+            added += 1
+        elif line.startswith("-"):
+            out.append(DiffLineRow(kind="del", text=line[1:], old_no=str(o)))
+            o += 1
+            removed += 1
+        else:
+            out.append(DiffLineRow(kind="ctx", text=line[1:], old_no=str(o), new_no=str(n)))
+            o += 1
+            n += 1
+    if len(out) == 1:
+        out.append(DiffLineRow(kind="hunk", text="(no change)"))
+    return out, added, removed
 
 
 def _size(n: int) -> str:
@@ -257,6 +302,9 @@ class WorkspaceState(rx.State):
     api_token: str = ""
     proposal_id: str = ""
     proposal_diff: list[DiffRow] = []
+    proposal_lines: list[DiffLineRow] = []
+    proposal_title: str = ""
+    proposal_why: str = ""
     reject_reason: str = ""
     # People
     link_access: str = "editor"
@@ -372,8 +420,7 @@ class WorkspaceState(rx.State):
         if v == "lab":
             self._load_evidence(pid)
         if v == "release":
-            actor = self._actor_now()
-            self.release_links = {r["id"]: downloads.link(pid, "release", r["id"], "package.zip", actor) for r in releases.of_project(pid, 20)}
+            self._load_release_links(pid)
         if v == "firmware" and not self.open_path.startswith("firmware/"):
             fw = [f.path for f in self.files if f.path.startswith("firmware/") and f.path.endswith(".c")]
             self._open(pid, fw[0] if fw else "system.yaml")
@@ -543,6 +590,16 @@ class WorkspaceState(rx.State):
     def load_evidence(self):
         if self.project_id:
             self._load_evidence(self.project_id)
+
+    def _load_release_links(self, pid: str) -> None:
+        actor = self._actor_now()
+        self.release_links = {r["id"]: downloads.link(pid, "release", r["id"], "package.zip", actor) for r in releases.of_project(pid, 20)}
+
+    @rx.event
+    def load_release_links(self):
+        if self.project_id:
+            self._load_release_links(self.project_id)
+            self._load_checks(self.project_id)
 
     def _actor_now(self) -> Actor:
         """This tab's person as last identified (UiState keeps it): for links made in sync code."""
@@ -929,7 +986,6 @@ class WorkspaceState(rx.State):
         except (service.SessionError, device_mod.DeviceError, projects.Denied) as e:
             self.dash_message = str(e)
             return rx.toast.error(str(e))
-        remember_device_values(self.project_id, out["result"])
         self.dash_message = f"{command} → {out['reply']}"
         note(self.project_id, actor.name, f"sent {command}", "device")
         return WorkspaceState.refresh_status
@@ -944,8 +1000,7 @@ class WorkspaceState(rx.State):
             prof = device_mod.load(projects.read(self.project_id, "device.yaml"))
             status = (prof.dashboard or {}).get("status", "")
             if status:
-                out = await asyncio.to_thread(service.device_command, s["id"], actor, status, {})
-                remember_device_values(self.project_id, out["result"])
+                await asyncio.to_thread(service.device_command, s["id"], actor, status, {})
         except (service.SessionError, device_mod.DeviceError, projects.Denied, projects.NotFound) as e:
             self.dash_message = str(e)
         return None
@@ -1032,13 +1087,19 @@ class WorkspaceState(rx.State):
         if p is None or p["project_id"] != self.project_id:
             return
         self.proposal_id = proposal_id
-        self.proposal_diff = [DiffRow(path=f["path"], old=f.get("old", ""), new=f["text"]) for f in p["files"]]
+        rows, lines = [], []
+        for f in p["files"]:
+            ls, added, removed = diff_lines(f["path"], f.get("old", ""), f["text"])
+            rows.append(DiffRow(path=f["path"], old=f.get("old", ""), new=f["text"], added=added, removed=removed))
+            lines += ls
+        self.proposal_diff, self.proposal_lines = rows, lines
+        self.proposal_title, self.proposal_why = p["title"], p.get("rationale", "")
         self.reject_reason = ""
 
     @rx.event
     def close_proposal(self):
         self.proposal_id = ""
-        self.proposal_diff = []
+        self.proposal_diff, self.proposal_lines = [], []
 
     @rx.event
     def set_reject_reason(self, value: str):
@@ -1052,7 +1113,7 @@ class WorkspaceState(rx.State):
         except (projects.Denied, projects.Conflict, projects.NotFound) as e:
             return rx.toast.error(str(e))
         note(self.project_id, actor.name, ("accepted" if accept else "rejected") + " an AI proposal", "ai")
-        self.proposal_id, self.proposal_diff = "", []
+        self.proposal_id, self.proposal_diff, self.proposal_lines = "", [], []
         self._load_files(self.project_id)
         if self.open_path:
             self._open(self.project_id, self.open_path)

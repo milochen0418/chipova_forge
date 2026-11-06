@@ -443,7 +443,8 @@ async def request(project_id: str, kind: str, actor: Actor, via: str = "ui", wai
     if not p.in_process and not image_id:
         if not await asyncio.to_thread(docker_runner.available):
             raise BuildError("Docker isn't reachable: builds run in containers")
-        raise BuildError(f"the image {p.image} isn't installed on this computer: {IMAGE_BUILD.get(p.image, 'docker build it')}")
+        raise BuildError(f"Forge's tools ({p.image}) aren't installed on this computer yet: press Install on the home page "
+                         f"(or {IMAGE_BUILD.get(p.image, 'docker build it')})")
     sha = inputs_sha(p, image_id)
     row = db().one("SELECT * FROM builds WHERE project_id = ? AND kind = ? AND inputs_sha = ? AND status = ? ORDER BY created_at DESC LIMIT 1",
                    (project_id, kind, sha, SUCCEEDED))

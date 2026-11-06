@@ -9,7 +9,7 @@ from chipova_forge.components.common import BTN_GHOST, BTN_OUTLINE, BTN_PRIMARY,
 from chipova_forge.components.links import backend_url
 from chipova_forge.components.sections_a import TD, TH, download_link, editor_panel, file_button, new_file_dialog, page, panel
 from chipova_forge.states.room import AnalogRow, BusRow, LedRow, ProjectRoom, ProposalRow, ReleaseRow, SensorRow, TestRow, TileRow, UartRow
-from chipova_forge.states.workspace import AuditRow, CheckRow, CommandRow, DiffRow, MemberRow, StepResultRow, WorkspaceState
+from chipova_forge.states.workspace import AuditRow, CheckRow, CommandRow, DiffLineRow, DiffRow, MemberRow, StepResultRow, WorkspaceState
 
 LED_ON = {"emerald": "bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]", "amber": "bg-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.9)]",
           "rose": "bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.9)]", "sky": "bg-sky-400 shadow-[0_0_14px_rgba(56,189,248,0.9)]"}
@@ -68,7 +68,7 @@ def sensor_control(s: SensorRow) -> rx.Component:
             rx.el.p(rx.icon("waves", class_name="h-3.5 w-3.5 inline mr-1"), "Set by the analog side (ngspice), each step: change its inputs below.",
                     class_name="text-xs text-sky-300"),
             rx.fragment(
-                rx.el.input(type="range", min=s.min, max=s.max, step=s.step, default_value=s.value.to(str), key=s.sensor + "-" + s.setting,
+                rx.el.input(type="range", min=s.min, max=s.max, step=s.step, default_value=s.value.to(str), key=s.sensor + "-" + s.setting + "-" + s.value.to(str),
                             on_change=lambda v: WorkspaceState.set_slider(s.sensor + "." + s.setting, v),
                             on_mouse_up=WorkspaceState.commit_slider(s.sensor, s.setting),
                             on_key_up=WorkspaceState.commit_slider(s.sensor, s.setting),
@@ -93,7 +93,8 @@ def analog_input(i: AnalogRow) -> rx.Component:
             rx.el.span(i.value.to(str), " ", i.unit, custom_attrs={"data-analog-input": i.name}, class_name="text-sm font-bold text-slate-100 font-mono whitespace-nowrap shrink-0"),
             class_name="flex justify-between items-baseline gap-3",
         ),
-        rx.el.input(type="range", min=i.min, max=i.max, step=i.step, default_value=i.value.to(str), key="analog-" + i.name,
+        # Keyed by the value too: when someone else (or the AI) changes it, the slider moves there.
+        rx.el.input(type="range", min=i.min, max=i.max, step=i.step, default_value=i.value.to(str), key="analog-" + i.name + "-" + i.value.to(str),
                     on_change=lambda v: WorkspaceState.set_slider("analog." + i.name, v),
                     on_mouse_up=WorkspaceState.commit_slider("analog", i.name),
                     on_key_up=WorkspaceState.commit_slider("analog", i.name),
@@ -245,8 +246,14 @@ def dashboard_view() -> rx.Component:
                 rx.el.div(rx.el.span("The device is off: start the simulation."),
                           rx.el.button(rx.icon("play", class_name="h-4 w-4"), "Start", on_click=WorkspaceState.start_session, disabled=~WorkspaceState.can_simulate, class_name=BTN_PRIMARY),
                           class_name=f"{PANEL} flex justify-between items-center p-4 text-sm text-slate-300")),
-        rx.cond(ProjectRoom.alert, rx.el.div(rx.icon("siren", class_name="h-5 w-5"), rx.el.span("ALARM: above the threshold", class_name="font-bold"),
-                                             id="alarm-banner", class_name="flex items-center gap-2 p-3 rounded-xl bg-rose-600/90 text-white animate-pulse")),
+        # There all the time the device runs, only its colour changes: a banner that came and went
+        # would move the page under the user's pointer.
+        rx.cond(ProjectRoom.running,
+                rx.cond(ProjectRoom.alert,
+                        rx.el.div(rx.icon("siren", class_name="h-5 w-5"), rx.el.span("ALARM: above the threshold", class_name="font-bold"),
+                                  id="alarm-banner", class_name="flex items-center gap-2 p-3 rounded-xl border border-rose-500 bg-rose-600/90 text-white animate-pulse"),
+                        rx.el.div(rx.icon("circle-check", class_name="h-5 w-5"), rx.el.span("No alarm", class_name="font-bold"),
+                                  id="no-alarm", class_name="flex items-center gap-2 p-3 rounded-xl border border-slate-800 bg-slate-900/70 text-emerald-300"))),
         rx.el.div(rx.foreach(ProjectRoom.tiles, tile), id="tiles", class_name="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"),
         rx.el.div(
             panel("Controls",
@@ -376,6 +383,8 @@ def release_row(r: ReleaseRow) -> rx.Component:
 def release_view() -> rx.Component:
     return page(
         "Release", "One package: the chip's snapshot, the board, the firmware, the builds, each test's evidence and the checks, every file with its SHA-256.",
+        # Re-mounted when a release appears (the AI's too): its download link is signed for this tab.
+        rx.el.div(rx.el.div(on_mount=WorkspaceState.load_release_links), key=ProjectRoom.releases.length().to(str), class_name="hidden"),
         panel("What a release would say now",
               rx.el.table(rx.el.tbody(rx.foreach(WorkspaceState.checks, check_row)), id="checks", class_name="w-full"),
               rx.el.p("Passing means the digital design works in simulation. It is not a foundry signoff or a hardware qualification: the package's README says what isn't covered.",
@@ -402,24 +411,40 @@ def proposal_row(p: ProposalRow) -> rx.Component:
     )
 
 
-def diff_block(d: DiffRow) -> rx.Component:
-    return rx.el.div(
-        rx.el.span(d.path, class_name="font-mono text-xs text-amber-300"),
-        rx.el.div(
-            rx.el.pre(d.old, class_name="text-[11px] font-mono text-rose-200/80 bg-rose-950/30 rounded p-2 max-h-72 overflow-auto whitespace-pre-wrap"),
-            rx.el.pre(d.new, class_name="text-[11px] font-mono text-emerald-200 bg-emerald-950/30 rounded p-2 max-h-72 overflow-auto whitespace-pre-wrap"),
-            class_name="grid grid-cols-2 gap-2",
-        ),
-        class_name="flex flex-col gap-1",
+def diff_line(d: DiffLineRow) -> rx.Component:
+    """One line of the diff: the changed lines in colour, a few around them, the file and where."""
+    num = "w-10 shrink-0 text-right pr-2 select-none text-slate-600"
+    return rx.match(
+        d.kind,
+        ("file", rx.el.div(rx.icon("file-code-2", class_name="h-3.5 w-3.5"), d.text, class_name="flex items-center gap-1.5 px-2 py-1.5 mt-2 first:mt-0 text-amber-300 font-semibold bg-slate-900 rounded-t")),
+        ("hunk", rx.el.div(d.text, class_name="px-2 py-0.5 text-sky-400/80 bg-sky-950/30")),
+        ("add", rx.el.div(rx.el.span(d.old_no, class_name=num), rx.el.span(d.new_no, class_name=num), rx.el.span("+", class_name="w-4 shrink-0 text-emerald-400"),
+                          rx.el.span(d.text, class_name="whitespace-pre-wrap break-all"), custom_attrs={"data-diff": "add"},
+                          class_name="flex bg-emerald-500/15 text-emerald-100")),
+        ("del", rx.el.div(rx.el.span(d.old_no, class_name=num), rx.el.span(d.new_no, class_name=num), rx.el.span("−", class_name="w-4 shrink-0 text-rose-400"),
+                          rx.el.span(d.text, class_name="whitespace-pre-wrap break-all line-through decoration-rose-400/50"), custom_attrs={"data-diff": "del"},
+                          class_name="flex bg-rose-500/15 text-rose-100")),
+        rx.el.div(rx.el.span(d.old_no, class_name=num), rx.el.span(d.new_no, class_name=num), rx.el.span(" ", class_name="w-4 shrink-0"),
+                  rx.el.span(d.text, class_name="whitespace-pre-wrap break-all"), class_name="flex text-slate-400"),
     )
+
+
+def diff_count(d: DiffRow) -> rx.Component:
+    return rx.el.span(d.path, " ", rx.el.span("+", d.added.to(str), class_name="text-emerald-400"), " ",
+                      rx.el.span("−", d.removed.to(str), class_name="text-rose-400"), class_name="font-mono text-xs text-slate-300")
 
 
 def proposal_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("The AI's proposal"),
-            rx.dialog.description("Before (left) and after (right). Accept saves the files as yours; reject tells the AI why.", size="2"),
-            rx.el.div(rx.foreach(WorkspaceState.proposal_diff, diff_block), class_name="flex flex-col gap-3 mt-3 max-h-[60vh] overflow-y-auto"),
+            rx.el.p(WorkspaceState.proposal_title, id="proposal-title", class_name="text-base font-semibold text-slate-100"),
+            rx.cond(WorkspaceState.proposal_why != "", rx.el.p(rx.el.span("Why: ", class_name="text-slate-500"), WorkspaceState.proposal_why,
+                                                               class_name="text-sm text-slate-300 mt-1")),
+            rx.el.div(rx.foreach(WorkspaceState.proposal_diff, diff_count), class_name="flex gap-4 flex-wrap mt-2"),
+            rx.el.div(rx.foreach(WorkspaceState.proposal_lines, diff_line), id="proposal-diff",
+                      class_name="flex flex-col mt-2 max-h-[52vh] overflow-y-auto rounded border border-slate-800 bg-black/40 font-mono text-[12px] leading-5"),
+            rx.dialog.description("Only what changes, with a few lines around it. Accept saves the files as yours; reject tells the AI why.", size="2", class_name="mt-2"),
             # Uncontrolled (a controlled textarea breaks Chinese input methods); a new proposal gets a new box.
             rx.el.textarea(default_value="", key=WorkspaceState.proposal_id, on_change=WorkspaceState.set_reject_reason, rows="2",
                            placeholder="Why (if you reject it)", id="reject-reason",

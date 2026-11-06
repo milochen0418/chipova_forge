@@ -26,7 +26,7 @@ from chipova_forge.components.sections_b import agents_view, dashboard_view, lab
 from chipova_forge.components.workspace import workspace
 from chipova_forge.gateway import api
 from chipova_forge.jobs import builds
-from chipova_forge.services import downloads, presence, proposals, systemtests
+from chipova_forge.services import downloads, presence, proposals, releases, systemtests
 from chipova_forge.sessions import service
 from chipova_forge.states import room as room_state
 from chipova_forge.states.home_state import HomeState
@@ -110,8 +110,10 @@ except (ImportError, LookupError):
 # What changes reaches the rooms of its project.
 builds.listeners.append(lambda pid, bid: push_later(pid, "builds"))
 service.listeners.append(lambda pid, sid: push_later(pid, "session"))
+service.reply_listeners.append(room_state.remember_device_values)
 systemtests.listeners.append(lambda pid, rid: push_later(pid, "tests"))
 proposals.listeners.append(lambda pid, xid: push_later(pid, "proposals"))
+releases.listeners.append(lambda pid, rid: push_later(pid, "releases", "project"))
 ai_tools.activity = _ai_activity
 
 api.register_routes(app)

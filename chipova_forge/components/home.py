@@ -5,7 +5,7 @@ from __future__ import annotations
 import reflex as rx
 
 from chipova_forge.components.common import BTN_GHOST, BTN_OUTLINE, BTN_PRIMARY, INPUT, LABEL, PANEL, ago, empty, logo, status_badge
-from chipova_forge.states.home_state import HomeState, OptionRow, ProjectRow
+from chipova_forge.states.home_state import HomeState, OptionRow, ProjectRow, ToolRow, ToolsState
 from chipova_forge.states.ui_state import UiState
 
 FLOW = [
@@ -141,6 +141,44 @@ def identity_chip() -> rx.Component:
     )
 
 
+def tool_row(r: ToolRow) -> rx.Component:
+    return rx.el.div(
+        rx.el.div(
+            rx.el.span(r.title, class_name="text-sm font-semibold text-slate-100"),
+            rx.el.span(r.what, " · ", r.size, class_name="text-xs text-slate-400"),
+            rx.cond(r.line != "", rx.el.span(r.line, class_name="text-[11px] font-mono text-slate-500 truncate")),
+            class_name="flex flex-col min-w-0",
+        ),
+        status_badge(r.status, small=True),
+        custom_attrs={"data-tool": r.key, "data-status": r.status},
+        class_name="flex justify-between items-center gap-3 py-2",
+    )
+
+
+def tools_panel() -> rx.Component:
+    """Shown until Forge's two tool images are on this computer (an App Store install doesn't
+    bring them): Install builds them here."""
+    return rx.cond(
+        ToolsState.tools_missing,
+        rx.el.section(
+            rx.el.div(
+                rx.el.div(
+                    rx.el.h2("Install Forge's tools first", class_name="text-base font-bold text-amber-200"),
+                    rx.el.p("Builds, simulations and the PCB run in two Docker images. Forge builds them on this computer once, "
+                            "in the background: a few minutes with the platform's download cache.", class_name="text-sm text-slate-300"),
+                    class_name="flex flex-col gap-1",
+                ),
+                rx.el.button(rx.icon("download", class_name="h-4 w-4"), "Install", on_click=ToolsState.install_tools, id="install-tools",
+                             disabled=ToolsState.tools_busy, class_name=BTN_PRIMARY),
+                class_name="flex justify-between items-start gap-4",
+            ),
+            rx.el.div(rx.foreach(ToolsState.tools, tool_row), class_name="flex flex-col divide-y divide-slate-800 mt-2"),
+            id="tools",
+            class_name="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 mt-6",
+        ),
+    )
+
+
 def home_page() -> rx.Component:
     return rx.el.div(
         rx.el.header(
@@ -160,6 +198,7 @@ def home_page() -> rx.Component:
                     class_name="flex flex-col gap-2",
                 ),
                 flow_strip(),
+                tools_panel(),
                 class_name="flex flex-col gap-4",
             ),
             rx.el.div(

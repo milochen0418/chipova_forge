@@ -63,7 +63,7 @@ UART line each), firmware/*.c, tests/*.yaml.
 
 
 def _actor(ctx: ToolContext) -> Actor:
-    return agent("AI", on_behalf_of=ctx.user or "")
+    return agent("AI Hub", on_behalf_of=ctx.user or "")
 
 
 def _project(room: str, actor: Actor, action: str = roles.VIEW) -> dict[str, Any]:

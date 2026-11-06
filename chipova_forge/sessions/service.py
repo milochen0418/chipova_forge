@@ -48,6 +48,8 @@ ACTIVE = ("CREATED", "STARTING", "READY", "RUNNING", "PAUSED")
 
 # Told (project id, session id) when a session's state or events change.
 listeners: list[Callable[[str, str], None]] = []
+# Told (project id, session id, the reply's seq, its values) after each answered device command.
+reply_listeners: list[Callable[[str, str, int, dict[str, Any]], None]] = []
 
 
 class SessionError(RuntimeError):
@@ -62,6 +64,9 @@ class Live:
         self.project_id = project_id
         self.channel: containers.Channel | None = None
         self.events: collections.deque = collections.deque(maxlen=KEEP_EVENTS)
+        # What the panels show (UART lines, bus transactions, LEDs), kept apart: the analog side's
+        # many events would otherwise push them out of ``events``.
+        self.panel: collections.deque = collections.deque(maxlen=1200)
         self.state = "CREATED"
         self.error = ""
         self.status: dict[str, Any] = {}
@@ -234,6 +239,8 @@ def _on_event(lv: Live, e: dict[str, Any]) -> None:
             e = {**e, "device_event": ev[0], "fields": ev[1]}
     with lv.cond:
         lv.events.append(e)
+        if kind in ("uart", "uart_in", "bus", "led"):
+            lv.panel.append(e)
         lv.last_seq = max(lv.last_seq, int(e.get("seq", 0)))
         if "vt" in e:
             try:
@@ -502,6 +509,11 @@ def device_command(session_id: str, actor: Actor, command: str, args: dict[str, 
     how, result = device_mod.reply_of(lv.profile, command, str(e.get("line", "")))
     if how == "error":
         raise device_mod.DeviceError(f"the device refused {command}: {result.get('message') if result else ''}")
+    for fn in list(reply_listeners):
+        try:
+            fn(lv.project_id, session_id, int(e.get("seq", 0)), result or {})
+        except Exception:  # noqa: BLE001
+            logger.exception("A device reply listener failed")
     return {"command": command, "sent": line, "reply": e.get("line", ""), "result": result or {}, "vt": e.get("vt"), "seq": e.get("seq")}
 
 

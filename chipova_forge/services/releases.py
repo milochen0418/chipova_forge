@@ -61,6 +61,17 @@ What it does not show, and must be checked elsewhere before anything is manufact
 """
 
 
+listeners: list = []  # (project id, release id): a release was made or approved
+
+
+def _notify(project_id: str, release_id: str) -> None:
+    for fn in list(listeners):
+        try:
+            fn(project_id, release_id)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 class ReleaseError(RuntimeError):
     pass
 
@@ -204,6 +215,7 @@ def create(project_id: str, title: str, actor: Actor) -> dict[str, Any]:
     sha, size, manifest_sha = _package(r, cs, used, actor)
     db().update("releases", {"id": rid}, {"package": sha, "size": size, "manifest_sha": manifest_sha})
     audit.record("release.create", actor, project_id, rid, {"status": status, "sha256": sha})
+    _notify(project_id, rid)
     return get(rid)  # type: ignore[return-value]
 
 
@@ -218,6 +230,7 @@ def approve(release_id: str, actor: Actor) -> dict[str, Any]:
         raise ReleaseError("someone other than the person who made it approves a release")
     db().update("releases", {"id": release_id}, {"status": "APPROVED"})
     audit.record("release.approve", actor, r["project_id"], release_id)
+    _notify(r["project_id"], release_id)
     return get(release_id)  # type: ignore[return-value]
 
 

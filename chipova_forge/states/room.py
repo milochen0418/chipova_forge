@@ -173,8 +173,9 @@ registration = None
 _pending: dict[str, set[str]] = {}
 _handles: dict[str, asyncio.TimerHandle] = {}
 _tasks: set[asyncio.Task] = set()
-# The device's last known values, per project (from status replies and events).
-_device_values: dict[str, dict[str, Any]] = {}
+_loop: asyncio.AbstractEventLoop | None = None
+# The device's last known values, per (project, session) (from replies and events).
+_device_values: dict[tuple[str, str], dict[str, Any]] = {}
 
 
 def note(project_id: str, who: str, what: str, kind: str = "edit") -> None:
@@ -183,8 +184,17 @@ def note(project_id: str, who: str, what: str, kind: str = "edit") -> None:
     push_later(project_id, "activity")
 
 
-def remember_device_values(project_id: str, values: dict[str, Any]) -> None:
-    _device_values.setdefault(project_id, {}).update(values)
+# (project, session) -> the last event whose device values were taken
+_device_seq: dict[tuple[str, str], int] = {}
+
+
+def remember_device_values(project_id: str, session_id: str, seq: int, values: dict[str, Any]) -> None:
+    """A device reply's values (whoever sent the command: a person, the AI, a script). The events
+    before the reply are older news: they're marked as seen, so they can't undo it."""
+    key = (project_id, session_id)
+    _device_values.setdefault(key, {}).update(values)
+    if seq:
+        _device_seq[key] = max(_device_seq.get(key, 0), int(seq))
     push_later(project_id, "session")
 
 
@@ -286,7 +296,7 @@ def _steps(pid: str, c: hdc.Contract | None, b: board_mod.Board | None, regs: di
     errs = [i for i in c_issues if i.level == "error"]
     out.append(st(2, "Hardware contract", "ATTENTION" if errs else "DONE", f"{len(errs)} errors" if errs else f"{c.interface.protocol if c else ''} · {len(c.pins) if c else 0} pins", "chip"))
     berrs = [i for i in b_issues if i.level == "error"]
-    out.append(st(3, "System architecture", "ATTENTION" if berrs else "DONE", f"{len(berrs)} errors" if berrs else (f"{b.platform} · {len(b.sensors)} sensors" if b else ""), "board"))
+    out.append(st(3, "System architecture", "ATTENTION" if berrs else "DONE", f"{len(berrs)} errors" if berrs else (f"{b.platform} · {len(b.sensors)} sensor{'' if len(b.sensors) == 1 else 's'}" if b else ""), "board"))
     pcb = bmap.get("pcb")
     if pcb is None:
         out.append(st(4, "Circuit schematic", "TODO", "build the schematic and PCB (Board page)", "board"))
@@ -491,7 +501,7 @@ def _publish_analog(room: ProjectRoom, pid: str, lv: Any, b: board_mod.Board | N
                     drives.append(AnalogRow(name=name, title=f"{d.get('title', name)} ← chip {b.analog.drives[name]}", on=bool(dstate.get(name))))
             if lv is not None and outs:
                 first = outs[0]
-                dv = _device_values.get(pid, {})
+                dv = _device_values.get((pid, lv.session_id), {})
                 marks = {}
                 if isinstance(dv.get("threshold"), (int, float)):
                     marks["threshold"] = float(dv["threshold"])
@@ -542,7 +552,7 @@ def _publish_session(room: ProjectRoom, pid: str, sess: dict | None, b: board_mo
                 sensors.append(SensorRow(sensor=s.name, setting=key, title=f"{s.name} ({comp['title']})", value=round(value, 3),
                                          unit=spec.get("unit", ""), min=float(spec["min"]), max=float(spec["max"]), step=0.25, driven=driven))
         with lv.cond:
-            evs = list(lv.events)
+            evs = list(lv.panel)
         total = lv.last_seq
         for e in evs:
             k = e.get("kind")
@@ -555,12 +565,18 @@ def _publish_session(room: ProjectRoom, pid: str, sess: dict | None, b: board_mo
                                   register=str(e.get("register") or ""), offset=f"0x{int(e.get('offset', 0)):02x}",
                                   value=f"0x{int(e.get('value', 0)):08x} ({int(e.get('value', 0))})", via=str(e.get("via", ""))))
         uart, bus = uart[-UART_ROWS:], bus[-BUS_ROWS:]
-        # The device's values: its last status reply or event.
+        # The device's values: its last status reply or event, each event applied once and in
+        # order (replaying old events would undo a newer reply, a threshold just set, say).
         prof = lv.profile
         if prof is not None:
+            key = (pid, lv.session_id)
+            done = _device_seq.get(key, 0)
             for e in evs:
-                if e.get("kind") == "uart" and e.get("fields") and e.get("device_event") in ("alarm", "normal"):
-                    _device_values.setdefault(pid, {}).update(e["fields"])
+                seq = int(e.get("seq", 0))
+                if seq > done and e.get("kind") == "uart" and e.get("fields") and e.get("device_event") in ("alarm", "normal"):
+                    _device_values.setdefault(key, {}).update(e["fields"])
+            if evs:
+                _device_seq[key] = max(done, int(evs[-1].get("seq", 0)))
     if list(room.leds) != leds:
         room.leds = leds
     if list(room.sensors) != sensors:
@@ -574,8 +590,8 @@ def _publish_session(room: ProjectRoom, pid: str, sess: dict | None, b: board_mo
         room.events_total = total
     tiles, alert = [], False
     prof = lv.profile if lv is not None else None
-    if prof is not None:
-        values = _device_values.get(pid, {})
+    if prof is not None and lv is not None:
+        values = _device_values.get((pid, lv.session_id), {})
         dash = prof.dashboard or {}
         units = {}
         for cmd in prof.commands.values():
@@ -596,15 +612,20 @@ EVERYTHING = {"project", "builds", "session", "tests", "proposals", "releases", 
 
 
 def push_later(project_id: str, *what: str) -> None:
-    """``publish`` from outside the tabs' own events, gathered over PUSH_DELAY."""
+    """``publish`` from outside the tabs' own events, gathered over PUSH_DELAY. From a worker
+    thread too: it's handed to the app's loop."""
+    global _loop
     if not ids.is_project(project_id):
-        return
-    _pending.setdefault(project_id, set()).update(what or EVERYTHING)
-    if project_id in _handles:
         return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        if _loop is not None and not _loop.is_closed():
+            _loop.call_soon_threadsafe(push_later, project_id, *what)
+        return
+    _loop = loop
+    _pending.setdefault(project_id, set()).update(what or EVERYTHING)
+    if project_id in _handles:
         return
     _handles[project_id] = loop.call_later(PUSH_DELAY, _start_push, project_id)
 
