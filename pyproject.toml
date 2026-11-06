@@ -3,6 +3,7 @@ name = "chipova-forge"
 version = "0.1.0"
 description = "Chipova Forge - from a finished chip to a working virtual product: registers, board, firmware, co-simulation, device API and apps, with AI agents"
 authors = ["Milo Chen"]
+license = "MIT"
 readme = "README.md"
 package-mode = false
 

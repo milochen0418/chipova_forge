@@ -1,5 +1,7 @@
 # Chipova Forge
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 From a finished chip to a working virtual product, together. Chipova Forge takes a chip
 designed in [Chipova](https://github.com/milochen0418/chipova) (its RTL, pins and SystemRDL
 registers) and builds everything around it: the hardware contract, the board, the firmware, a
@@ -112,4 +114,15 @@ release's README says what its evidence covers.
 - [testcases/README.md](testcases/README.md): the browser suites
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): the tools Forge runs and their licences
 
-MIT licence.
+## License
+
+Chipova Forge is released under the [MIT License](LICENSE): you may use, copy, change, merge,
+publish, distribute, sublicense and sell it, in your own projects and products, as long as the
+copyright notice and the licence text stay with it. It comes without warranty.
+
+Copyright (c) 2026 Milo Chen.
+
+The tools Forge runs in its container images (Renode, Verilator, Arm GCC, ngspice, KiCad,
+Freerouting, OpenJDK) keep their own licences, some of them GPL. Forge runs them as separate
+programs and doesn't link them into its code; [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+lists each one. Images you build and share carry those programs, so their licences apply to them.
