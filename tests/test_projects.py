@@ -121,6 +121,44 @@ def test_ai_proposals(sensor, me):
             proposals.propose(pid, ai, "bad", bad)
 
 
+def test_proposals_by_edits(sensor, me):
+    """A small change to a long file: the AI names the lines it changes, not the whole file."""
+    pid = sensor["id"]
+    ai = actors.agent("AI", on_behalf_of=me.user)
+    old = projects.read(pid, "firmware/main.c")
+    line = next(ln for ln in old.split("\n") if "CHIP_WR(CTRL," in ln and "IRQ_EN_bm);" in ln)
+    p = proposals.propose(pid, ai, "Hysteresis 1.5 °C", [{"path": "firmware/main.c", "edits": [
+        {"old": line, "new": line + "\n    CHIP_WR(HYST, 150u);"}]}])
+    new = p["files"][0]["text"]
+    assert new == old.replace(line, line + "\n    CHIP_WR(HYST, 150u);", 1)
+    # Copied without its indentation: still found, and the new lines take the file's indentation.
+    q = proposals.propose(pid, ai, "Again", [{"path": "firmware/main.c", "edits": [{"old": line.strip(), "new": line.strip() + "\nCHIP_WR(HYST, 150u);"}]}])
+    assert q["files"][0]["text"] == new
+    # The names coding tools use, an edit right in the change, and edits as a text: all the same edit.
+    for change in ({"path": "firmware/main.c", "edits": [{"old_string": line, "new_string": line + "\n    CHIP_WR(HYST, 150u);"}]},
+                   {"path": "firmware/main.c", "search": line, "replace": line + "\n    CHIP_WR(HYST, 150u);"},
+                   {"path": "firmware/main.c", "edits": json.dumps([{"old": line, "new": line + "\n    CHIP_WR(HYST, 150u);"}])},
+                   {"path": "firmware/main.c", "edits": [{"old": [line], "new": [line, "    CHIP_WR(HYST, 150u);"]}]}):
+        assert proposals.propose(pid, ai, "Again", [change])["files"][0]["text"] == new
+    # Each of those replaced the one before it: only the newest still waits for a person.
+    waiting = [x for x in proposals.of_project(pid) if x["status"] == "PROPOSED"]
+    assert len(waiting) == 1 and proposals.get(p["id"])["status"] == "SUPERSEDED"
+    with pytest.raises(projects.Conflict):
+        proposals.decide(p["id"], me, True)
+    with pytest.raises(ValueError, match="old is empty"):
+        proposals.propose(pid, ai, "x", [{"path": "firmware/main.c", "edits": [{"old": "", "new": "CHIP_WR(HYST, 150u);"}]}])
+    with pytest.raises(ValueError, match="it has before_text"):
+        proposals.propose(pid, ai, "x", [{"path": "firmware/main.c", "edits": [{"before_text": line, "y": 1}]}])
+    with pytest.raises(ValueError, match="isn't in the file"):
+        proposals.propose(pid, ai, "x", [{"path": "firmware/main.c", "edits": [{"old": "no such line", "new": "y"}]}])
+    with pytest.raises(ValueError, match="times"):
+        proposals.propose(pid, ai, "x", [{"path": "firmware/main.c", "edits": [{"old": "#include", "new": "#include"}]}])
+    with pytest.raises(ValueError, match="change nothing"):
+        proposals.propose(pid, ai, "x", [{"path": "firmware/main.c", "edits": [{"old": line, "new": line}]}])
+    with pytest.raises(ValueError):
+        proposals.propose(pid, ai, "x", [{"path": "firmware/new.c", "edits": [{"old": "a", "new": "b"}]}])
+
+
 def test_api_tokens(me):
     t = api.make_token(me)
     assert t.startswith("cfg1.") and api.read_token(t) == me

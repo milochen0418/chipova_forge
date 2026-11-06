@@ -63,8 +63,8 @@ def main() -> None:
 
         view(a, "dashboard")
         a.wait_for_selector("#tiles [data-tile='temperature']", timeout=15000)
-        a.fill("#threshold-input", "42")
-        a.click("#apply-threshold")
+        a.fill("[data-control-input='set_threshold']", "42")
+        a.click("[data-control-apply='set_threshold']")
         wait_for(lambda: "42" in a.inner_text("#tiles [data-tile='threshold']"), "the threshold tile says 42", 15)
         wait_for(lambda: a.locator("#alarm-banner").count() == 0, "40 °C under 42 °C is no alarm", 15)
         shot(a, "04_dashboard")

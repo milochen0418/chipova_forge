@@ -27,6 +27,7 @@ STATUS_STYLE = {
     "APPROVED": ("bg-emerald-500/15 text-emerald-300 border-emerald-500/30", "Approved"),
     "REJECTED": ("bg-rose-500/15 text-rose-300 border-rose-500/30", "Rejected"),
     "EXPIRED": ("bg-slate-600/20 text-slate-400 border-slate-600/40", "Expired"),
+    "SUPERSEDED": ("bg-slate-600/20 text-slate-400 border-slate-600/40", "Replaced"),
     "PENDING": ("bg-slate-600/20 text-slate-400 border-slate-600/40", "Pending"),
     "SKIPPED": ("bg-slate-600/20 text-slate-500 border-slate-600/40", "Skipped"),
     # Signoff

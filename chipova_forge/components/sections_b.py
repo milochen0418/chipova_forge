@@ -9,7 +9,7 @@ from chipova_forge.components.common import BTN_GHOST, BTN_OUTLINE, BTN_PRIMARY,
 from chipova_forge.components.links import backend_url
 from chipova_forge.components.sections_a import TD, TH, download_link, editor_panel, file_button, new_file_dialog, page, panel
 from chipova_forge.states.room import AnalogRow, BusRow, LedRow, ProjectRoom, ProposalRow, ReleaseRow, SensorRow, TestRow, TileRow, UartRow
-from chipova_forge.states.workspace import AuditRow, CheckRow, CommandRow, DiffLineRow, DiffRow, MemberRow, StepResultRow, WorkspaceState
+from chipova_forge.states.workspace import AuditRow, CheckRow, CommandRow, ControlRow, DiffLineRow, DiffRow, MemberRow, StepResultRow, WorkspaceState
 
 LED_ON = {"emerald": "bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]", "amber": "bg-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.9)]",
           "rose": "bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.9)]", "sky": "bg-sky-400 shadow-[0_0_14px_rgba(56,189,248,0.9)]"}
@@ -239,6 +239,25 @@ def command_row(c: CommandRow) -> rx.Component:
     )
 
 
+def control_row(c: ControlRow) -> rx.Component:
+    """One of device.yaml's controls: a value and Apply, or a button."""
+    off = ~WorkspaceState.can_operate | ~ProjectRoom.running
+    return rx.cond(
+        c.arg != "",
+        rx.el.div(
+            rx.el.span(c.label, rx.cond(c.unit != "", " (" + c.unit + ")", ""), class_name="text-sm text-slate-300 w-44"),
+            rx.el.input(type="number", step=c.step.to(str), value=WorkspaceState.dash_control_value[c.command].to(str),
+                        on_change=lambda v: WorkspaceState.set_control_value(c.command, v),
+                        custom_attrs={"data-control-input": c.command}, class_name=f"{INPUT} w-28 font-mono"),
+            rx.el.button("Apply", on_click=WorkspaceState.device_command(c.command, c.arg), disabled=off,
+                         custom_attrs={"data-control-apply": c.command}, class_name=BTN_PRIMARY),
+            class_name="flex gap-2 items-center flex-wrap",
+        ),
+        rx.el.button(c.label, on_click=WorkspaceState.device_command(c.command, ""), disabled=off,
+                     custom_attrs={"data-control": c.command}, class_name=f"{BTN_OUTLINE} self-start"),
+    )
+
+
 def dashboard_view() -> rx.Component:
     return page(
         "The product's app", "A dashboard built only on the device API: the same commands an app sends to the real product over its serial port. Backend: the virtual board.",
@@ -259,17 +278,10 @@ def dashboard_view() -> rx.Component:
             panel("Controls",
                   rx.el.div(
                       rx.el.div(
-                          rx.el.span("Alarm threshold (°C)", class_name="text-sm text-slate-300"),
-                          rx.el.div(
-                              rx.el.input(type="number", step="0.5", value=WorkspaceState.dash_control_value["set_threshold"].to(str),
-                                          on_change=lambda v: WorkspaceState.set_control_value("set_threshold", v), id="threshold-input", class_name=f"{INPUT} w-28 font-mono"),
-                              rx.el.button("Apply", on_click=WorkspaceState.device_command("set_threshold", "celsius"), disabled=~WorkspaceState.can_operate | ~ProjectRoom.running,
-                                           id="apply-threshold", class_name=BTN_PRIMARY),
-                              rx.el.button("Clear the alarm", on_click=WorkspaceState.device_command("clear_alarm", ""), disabled=~WorkspaceState.can_operate | ~ProjectRoom.running, class_name=BTN_OUTLINE),
-                              rx.el.button(rx.icon("refresh-cw", class_name="h-3.5 w-3.5"), "Refresh", on_click=WorkspaceState.refresh_status, disabled=~ProjectRoom.running, id="refresh-status", class_name=BTN_GHOST),
-                              class_name="flex gap-2 items-center flex-wrap",
-                          ),
-                          class_name="flex flex-col gap-2",
+                          rx.foreach(WorkspaceState.controls, control_row),
+                          rx.el.button(rx.icon("refresh-cw", class_name="h-3.5 w-3.5"), "Refresh", on_click=WorkspaceState.refresh_status, disabled=~ProjectRoom.running,
+                                       id="refresh-status", class_name=f"{BTN_GHOST} self-start"),
+                          id="controls", class_name="flex flex-col gap-2",
                       ),
                       rx.cond(WorkspaceState.dash_message != "", rx.el.p(WorkspaceState.dash_message, id="dash-message", class_name="text-xs font-mono text-slate-400")),
                       rx.el.div(rx.el.span("All commands (device.yaml)", class_name=LABEL),
@@ -540,4 +552,15 @@ def people_view() -> rx.Component:
         panel("Members", rx.el.table(
             rx.el.thead(rx.el.tr(rx.el.th("Person", class_name=TH), rx.el.th("Role", class_name=TH), rx.el.th("Added by", class_name=TH), rx.el.th("", class_name=TH))),
             rx.el.tbody(rx.foreach(WorkspaceState.members, member_row)), id="members", class_name="w-full")),
+        rx.cond(WorkspaceState.can_manage, panel(
+            "Delete this product",
+            rx.el.p("Its simulations stop and it leaves everyone's list; its releases' packages go with it.", class_name="text-sm text-slate-400"),
+            rx.cond(WorkspaceState.delete_armed,
+                    rx.el.div(rx.el.button(rx.icon("trash-2", class_name="h-3.5 w-3.5"), "Delete for good", on_click=WorkspaceState.delete_product,
+                                           id="delete-product-confirm", class_name=BTN_DANGER),
+                              rx.el.button("Keep it", on_click=WorkspaceState.arm_delete(False), class_name=BTN_GHOST),
+                              class_name="flex gap-2 mt-2"),
+                    rx.el.button(rx.icon("trash-2", class_name="h-3.5 w-3.5"), "Delete this product…", on_click=WorkspaceState.arm_delete(True),
+                                 id="delete-product", class_name=f"{BTN_OUTLINE} mt-2 self-start")),
+        )),
     )

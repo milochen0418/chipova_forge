@@ -188,6 +188,12 @@ def note(project_id: str, who: str, what: str, kind: str = "edit") -> None:
 _device_seq: dict[tuple[str, str], int] = {}
 
 
+def device_values(project_id: str) -> dict[str, Any]:
+    """The device's last known values in the project's running simulation."""
+    s = service.active_of(project_id)
+    return dict(_device_values.get((project_id, s["id"]), {})) if s else {}
+
+
 def remember_device_values(project_id: str, session_id: str, seq: int, values: dict[str, Any]) -> None:
     """A device reply's values (whoever sent the command: a person, the AI, a script). The events
     before the reply are older news: they're marked as seen, so they can't undo it."""

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 from typing import Any, Callable
 
 import reflex as rx
@@ -44,8 +45,10 @@ its pins, interface, registers), system.yaml (the board), device.yaml (the devic
 UART line each), firmware/*.c, tests/*.yaml.
 
 - forge.get_project shows where each step stands. forge.read_file reads any file.
-- You never edit files: forge.propose_change proposes whole new texts; a person accepts or rejects
-  (forge.proposal_status).
+- You never edit files: forge.propose_change proposes changes; a person accepts or rejects
+  (forge.proposal_status). A new or short file: its whole new text. A small change in a long file
+  (firmware/main.c): edits, each {"old": lines that are in the file now, copied exactly, "new":
+  what replaces them}; read the file first.
 - forge.build builds 'registers', 'chip' (the RTL as a simulation library), 'firmware' or 'pcb'
   (the carrier module's schematic and two-layer PCB: placed, routed by Freerouting, checked by
   KiCad's ERC and DRC against the schematic, with Gerbers and a BOM); errors come back with
@@ -170,12 +173,20 @@ async def get_registers(ctx: ToolContext, room: str) -> dict:
 # ------------------------------------------------------------------ proposing
 
 
-async def propose_change(ctx: ToolContext, room: str, title: str, changes: list[dict], rationale: str = "") -> dict:
-    """Proposes new texts of some files for people to accept or reject. changes = [{"path": ...,
-    "content": the whole new text}] (firmware/*.c|h, system.yaml, device.yaml, hardware.yaml,
-    tests/*.yaml)."""
+async def propose_change(ctx: ToolContext, room: str, title: str, changes: list[dict] | dict | str, rationale: str = "") -> dict:
+    """Proposes changes to some files for people to accept or reject (firmware/*.c|h, system.yaml,
+    device.yaml, hardware.yaml, tests/*.yaml). Each change is {"path": ..., "content": the whole new
+    text} or, for a small change in a long file, {"path": ..., "edits": [{"old": lines in the file
+    now, copied exactly, "new": what replaces them}]}."""
     actor = _actor(ctx)
     p = _project(room, actor, roles.PROPOSE)
+    if isinstance(changes, str):   # some models send the list as JSON text, often with raw line breaks in its strings
+        try:
+            changes = json.loads(changes, strict=False)
+        except ValueError:
+            raise ValueError('changes is a list: [{"path": ..., "content": ...}] or [{"path": ..., "edits": [...]}]') from None
+    if isinstance(changes, dict):
+        changes = [changes]
     x = proposals.propose(p["id"], actor, title, changes, rationale)
     _show(p["id"], actor, f"proposed “{x['title']}”")
     return {"proposal": x["id"], "files": [f["path"] for f in x["files"]],
@@ -412,7 +423,9 @@ def register(app: rx.App) -> None:
     t("forge.get_registers", get_registers, "The chip's register map", params={"room": ROOM})
     t("forge.propose_change", propose_change, "Propose a change", "write", params={
         "room": ROOM, "title": "What the change does, in a few words.",
-        "changes": "[{\"path\": ..., \"content\": the whole new text}]", "rationale": "Why, and how to check it."})
+        "changes": "[{\"path\": ..., \"content\": the whole new text}] or, for a small change in a long file, "
+                   "[{\"path\": ..., \"edits\": [{\"old\": lines in the file now, copied exactly, \"new\": what replaces them}]}]",
+        "rationale": "Why, and how to check it."})
     t("forge.proposal_status", proposal_status, "What people decided", params={"room": ROOM, "proposal": "The proposal's id (prp-…)."})
     t("forge.build", build, "Build", "write", params={"room": ROOM, "kind": "registers, chip, firmware or pcb."})
     t("forge.get_build", get_build, "Look at a build", params={"room": ROOM, "build": "The build's id (bld-…).", "lines": "How many of its output's last lines."})

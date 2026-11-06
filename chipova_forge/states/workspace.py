@@ -28,7 +28,7 @@ from chipova_forge.jobs import builds
 from chipova_forge.services import audit, downloads, presence, projects, proposals, releases, systemtests
 from chipova_forge.services.actors import Actor
 from chipova_forge.sessions import service
-from chipova_forge.states.room import EVERYTHING, ProjectRoom, last_evidence_session, note, publish, push_later
+from chipova_forge.states.room import EVERYTHING, ProjectRoom, device_values, last_evidence_session, note, publish, push_later
 from chipova_forge.states.ui_state import UiState
 from chipova_forge.system import board as board_mod
 from chipova_forge.system import catalog, diagram
@@ -100,6 +100,19 @@ class CommandRow:
     name: str = ""
     title: str = ""
     args: str = ""
+
+
+@dataclasses.dataclass
+class ControlRow:
+    """A control of the app, from device.yaml's dashboard: a command with a value, or a button."""
+
+    command: str = ""
+    arg: str = ""
+    label: str = ""
+    unit: str = ""
+    min: float = 0.0
+    max: float = 0.0
+    step: float = 1.0
 
 
 @dataclasses.dataclass
@@ -286,6 +299,7 @@ class WorkspaceState(rx.State):
     wave_info: str = ""
     # The dashboard
     commands: list[CommandRow] = []
+    controls: list[ControlRow] = []
     dash_message: str = ""
     dash_control_value: dict[str, float] = {}
     sdk_snippet: str = ""
@@ -310,6 +324,7 @@ class WorkspaceState(rx.State):
     link_access: str = "editor"
     members: list[MemberRow] = []
     member_email: str = ""
+    delete_armed: bool = False
     member_role: str = "reviewer"
     _ui_me: dict[str, str] = {}
 
@@ -944,15 +959,30 @@ class WorkspaceState(rx.State):
             prof = device_mod.load(projects.read(pid, "device.yaml"))
         except (projects.NotFound, device_mod.DeviceError):
             self.commands = []
+            self.controls = []
             return
         rows = []
         for n, c in prof.commands.items():
             rows.append(CommandRow(name=n, title=c.title, args=", ".join(f"{a.name} ({a.type}{f', {a.min}..{a.max}' if a.min is not None else ''})" for a in c.args)))
         self.commands = rows
         dash = prof.dashboard or {}
+        # The app's controls are device.yaml's: a new one there is a new control here.
+        units = {f.name or f.key: f.unit for c in prof.commands.values() for f in c.fields}
+        now = device_values(pid)
+        controls = []
         for ctl in dash.get("controls", []):
-            if ctl.get("arg") and ctl["command"] not in self.dash_control_value:
-                self.dash_control_value = {**self.dash_control_value, ctl["command"]: float(ctl.get("min", 0) + (ctl.get("max", 0) - ctl.get("min", 0)) / 2)}
+            cmd = str(ctl.get("command", ""))
+            if cmd not in prof.commands:
+                continue
+            arg = str(ctl.get("arg", "") or "")
+            lo, hi = float(ctl.get("min", 0) or 0), float(ctl.get("max", 0) or 0)
+            controls.append(ControlRow(command=cmd, arg=arg, label=str(ctl.get("label") or prof.commands[cmd].title or cmd),
+                                       unit=units.get(str(ctl.get("value_from", "")), ""), min=lo, max=hi, step=float(ctl.get("step", 1) or 1)))
+            if arg and cmd not in self.dash_control_value:
+                known = now.get(str(ctl.get("value_from", "")))
+                start = float(known) if isinstance(known, (int, float)) and not isinstance(known, bool) else lo + (hi - lo) / 2
+                self.dash_control_value = {**self.dash_control_value, cmd: start}
+        self.controls = controls
         status = dash.get("status", "")
         s = service.active_of(pid)
         token_hint = "<your token>"
@@ -1173,6 +1203,27 @@ class WorkspaceState(rx.State):
     async def change_member(self, user: str, role: str):
         pid = self.project_id
         return await self._manage(lambda a: projects.set_member(pid, user, role, a), f"made {user} {role or 'no longer a member'}")
+
+    @rx.event
+    def arm_delete(self, on: bool):
+        self.delete_armed = on
+
+    @rx.event
+    async def delete_product(self):
+        """An owner deletes the product: its simulations stop, and it leaves everyone's list."""
+        pid = self.project_id
+        actor = await self._actor()
+        try:
+            projects.require(pid, actor, roles.MANAGE)
+            for s in service.of_project(pid, 20):
+                if s["status"] in service.ACTIVE:
+                    await service.stop(s["id"], actor, "the product was deleted")
+            projects.delete(pid, actor)
+        except (projects.Denied, projects.NotFound, service.SessionError) as e:
+            return rx.toast.error(str(e))
+        self.delete_armed = False
+        push_later(pid, "project", "session")
+        return rx.redirect("/")
 
     @rx.event
     def refresh_audit(self):

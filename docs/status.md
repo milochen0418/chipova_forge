@@ -18,16 +18,19 @@ What Chipova Forge does today (2026-11-06), what it doesn't, and what was checke
   controller closes firmware → chip → fan → temperature → sensor.
 - **Device API**: one protocol for the simulated and a real board; REST API with tokens, events
   (SSE), the Python SDK (virtual or serial).
-- **App**: a dashboard built on the device API; a reply to anyone's command (a person's, the AI's,
-  a script's) updates everyone's tiles, and older events can't undo it.
+- **App**: a dashboard built on the device API; its controls are device.yaml's dashboard controls (a new
+  one there is a new control here, no code); a reply to anyone's command (a person's, the AI's, a
+  script's) updates everyone's tiles, and older events can't undo it.
 - **Tests and release**: system tests in fresh simulations; release checks (chip, contract,
   board, registers, builds, tests, schematic & PCB); packages with SHA-256 manifests; approval
   by someone else.
 - **Schematic and PCB**: a two-layer carrier module per product, routed by Freerouting, ERC and
   DRC clean with the board matching the schematic (all three products), Gerbers, drill, BOM,
   positions, KiCad files, pictures.
-- **AI**: 22 `forge.*` tools for the AI Hub; proposals that people decide; the audit log.
-- **People**: roles, the link's access, members.
+- **AI**: 22 `forge.*` tools for the AI Hub; proposals that people decide, as whole texts or, for a
+  small change in a long file, as edits (old → new, tolerant of indentation and of the names coding
+  tools use); a newer proposal by the same AI for the same files replaces its pending one; the audit log.
+- **People**: roles, the link's access, members; an owner can delete the product (its simulations stop).
 - **Tools**: when its two images aren't on the computer (an App Store install doesn't bring them), the home page
   builds them in the app, with progress.
 - **AI proposals** show as a diff: only the changed lines and three around them, numbered, with the AI's reason.
